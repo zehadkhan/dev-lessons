@@ -30,7 +30,7 @@ Light and dark themes are both supported — it follows your system setting, wit
 | 08 | [Read replicas and the vanishing write](lessons/08-read-replicas/) | Scaling | ✅ Live |
 | 09 | [Surviving a server crash at peak traffic](lessons/09-surviving-a-server-crash/) | Reliability | ✅ Live |
 
-This is the beginning of a much bigger curriculum — **40 chapters across networking, backend, databases, DevOps and distributed systems**. See the full plan in **[ROADMAP.md](ROADMAP.md)**.
+This is the beginning of a much bigger curriculum — **47 chapters across networking, backend, databases, DevOps, deployment and distributed systems**. See the full plan in **[ROADMAP.md](ROADMAP.md)**.
 
 ## 💡 What makes these different
 

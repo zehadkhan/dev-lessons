@@ -68,7 +68,21 @@ Status: ✅ published · 🔜 next wave · 📋 planned
 | 10 | Scaling: vertical, horizontal, auto | Load rising against capacity; when each strategy wins | 📋 |
 | 11 | Secrets management | The leaked `.env` incident; vaults, rotation, least privilege | 📋 |
 
-## Part V — Distributed systems (the hard stuff)
+## Part V — Deployment: the ladder from FTP to Kubernetes
+
+Ordered from simplest to heaviest — each rung automates what you did by hand on the previous one.
+
+| Ch | Lesson | Core mechanism to animate | Status |
+|----|--------|---------------------------|--------|
+| 1 | Deploying to a bare VPS, end to end | SSH → stack install → nginx → systemd service → certbot TLS → firewall → DNS, the whole first deploy | 📋 |
+| 2 | File-manager and panel deploys (cPanel, FTP) | A partial upload breaking prod mid-transfer; no history, no rollback — and when panels are honestly fine | 📋 |
+| 3 | Docker Compose on a VPS | App + db + proxy as one declared file; upgrade and rollback by image tag | 📋 |
+| 4 | Self-hosted PaaS: Coolify (and Dokku, CapRover) | `git push` → build → deploy on your own server; the platform doing chapter 1's work automatically | 📋 |
+| 5 | Managed platforms: Vercel and friends | Push → preview URL → promote; serverless functions spinning up per request; the control/convenience trade | 📋 |
+| 6 | Kubernetes: why it exists | Pods rescheduling, services routing, ingress, rolling updates, self-healing — and when it's overkill | 📋 |
+| 7 | Choosing your rung | The decision ladder animated: static vs app vs fleet, cost vs control vs complexity | 📋 |
+
+## Part VI — Distributed systems (the hard stuff)
 
 | Ch | Lesson | Core mechanism to animate | Status |
 |----|--------|---------------------------|--------|
@@ -80,6 +94,6 @@ Status: ✅ published · 🔜 next wave · 📋 planned
 
 ---
 
-**Progress: 9 published / 40 chapters planned.**
+**Progress: 9 published / 47 chapters planned.**
 
 Want to propose a chapter? Open an issue — but bring the failure story and the mechanism to animate, per the quality bar above.
