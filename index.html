@@ -29,6 +29,22 @@
   .herometa div{font-family:var(--mono);font-size:12.5px;color:var(--faint)}
   .herometa b{color:var(--ink);font-weight:600}
 
+  /* hero art */
+  .herogrid{display:grid;grid-template-columns:1fr 330px;gap:44px;align-items:center}
+  .heroart svg{width:100%;height:auto;display:block}
+  .pkt{transform-box:fill-box;animation:flow 2.4s linear infinite}
+  .pkt.p2{animation-delay:.8s}
+  .pkt.p3{animation-delay:1.6s}
+  @keyframes flow{0%{transform:translateX(0);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateX(120px);opacity:0}}
+  .barfill{transform-box:fill-box;transform-origin:left center;animation:grow 3.2s ease-in-out infinite}
+  @keyframes grow{0%{transform:scaleX(.05)}70%{transform:scaleX(1)}100%{transform:scaleX(1)}}
+  .playbtn{animation:pulseglow 2.6s ease-in-out infinite}
+  @keyframes pulseglow{0%,100%{filter:drop-shadow(0 0 5px rgba(167,139,250,.55))}50%{filter:drop-shadow(0 0 15px rgba(167,139,250,.95))}}
+  .livedot{animation:blink 1.6s ease-in-out infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @media(max-width:760px){.herogrid{grid-template-columns:1fr}.heroart{display:none}}
+  @media(prefers-reduced-motion:reduce){.heroart *{animation:none!important}}
+
   /* section */
   .sec{padding:52px 0}
   .sectitle{font-family:var(--mono);font-size:12px;letter-spacing:1.5px;color:var(--faint);
@@ -78,14 +94,51 @@
 <body>
 
 <div class="hero">
-  <div class="wrap">
-    <div class="eyebrow">Dev Lessons</div>
-    <h1>The hard problems, <span class="hl">animated</span> until they click.</h1>
-    <p class="lead">Interactive walkthroughs of the critical backend, database and DevOps problems every engineer eventually runs into. Each lesson animates the mechanism step by step — press play and watch it happen, instead of reading a wall of text.</p>
-    <div class="herometa">
-      <div><b>Open source</b> · MIT</div>
-      <div><b>No build step</b> · plain HTML</div>
-      <div><b>Real production</b> scenarios</div>
+  <div class="wrap herogrid">
+    <div class="herotext">
+      <div class="eyebrow">Dev Lessons</div>
+      <h1>The hard problems, <span class="hl">animated</span> until they click.</h1>
+      <p class="lead">Interactive walkthroughs of the critical backend, database and DevOps problems every engineer eventually runs into. Each lesson animates the mechanism step by step — press play and watch it happen, instead of reading a wall of text.</p>
+      <div class="herometa">
+        <div><b>Open source</b> · MIT</div>
+        <div><b>No build step</b> · plain HTML</div>
+        <div><b>Real production</b> scenarios</div>
+      </div>
+    </div>
+    <div class="heroart" aria-hidden="true">
+      <svg viewBox="0 0 340 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- lesson-widget card -->
+        <rect x="10" y="20" width="320" height="212" rx="14" fill="#161b22" stroke="#2a3441"/>
+        <!-- window chrome -->
+        <circle cx="32" cy="44" r="4.5" fill="#f0616d"/>
+        <circle cx="48" cy="44" r="4.5" fill="#f0a742"/>
+        <circle cx="64" cy="44" r="4.5" fill="#5bd68f"/>
+        <text x="84" y="48" font-family="SF Mono,Menlo,Consolas,monospace" font-size="9" letter-spacing="1.5" fill="#5b6875">LESSON · LIVE</text>
+        <circle class="livedot" cx="306" cy="44" r="4" fill="#5bd68f"/>
+        <line x1="10" y1="58" x2="330" y2="58" stroke="#2a3441"/>
+        <!-- app node -->
+        <rect x="34" y="84" width="76" height="54" rx="9" fill="#221a3a" stroke="#3a2d63"/>
+        <text x="72" y="107" text-anchor="middle" font-family="SF Mono,Menlo,Consolas,monospace" font-size="11" font-weight="600" fill="#a78bfa">APP</text>
+        <text x="72" y="123" text-anchor="middle" font-family="SF Mono,Menlo,Consolas,monospace" font-size="8" fill="#5b6875">serving</text>
+        <!-- db node -->
+        <rect x="230" y="84" width="76" height="54" rx="9" fill="#0d2033" stroke="#14304d"/>
+        <text x="268" y="107" text-anchor="middle" font-family="SF Mono,Menlo,Consolas,monospace" font-size="11" font-weight="600" fill="#4a9eea">DB</text>
+        <text x="268" y="123" text-anchor="middle" font-family="SF Mono,Menlo,Consolas,monospace" font-size="8" fill="#5b6875">replica ok</text>
+        <!-- pipe + packets -->
+        <line x1="110" y1="111" x2="230" y2="111" stroke="#2a3441" stroke-width="2"/>
+        <circle class="pkt p1" cx="110" cy="111" r="4" fill="#a78bfa"/>
+        <circle class="pkt p2" cx="110" cy="105" r="3.4" fill="#f0a742"/>
+        <circle class="pkt p3" cx="110" cy="117" r="3.4" fill="#5bd68f"/>
+        <!-- status bar -->
+        <rect x="34" y="164" width="272" height="8" rx="4" fill="#0d1117" stroke="#2a3441"/>
+        <rect class="barfill" x="34" y="164" width="272" height="8" rx="4" fill="#5bd68f"/>
+        <text x="34" y="196" font-family="SF Mono,Menlo,Consolas,monospace" font-size="9" fill="#5b6875">site status · 100% up · zero downtime</text>
+        <!-- play button -->
+        <g class="playbtn">
+          <circle cx="170" cy="240" r="27" fill="#a78bfa"/>
+          <path d="M162,227 L184,240 L162,253 Z" fill="#12091f"/>
+        </g>
+      </svg>
     </div>
   </div>
 </div>
