@@ -2,14 +2,19 @@
 
 **Animated, interactive walkthroughs of the hard engineering problems every developer eventually hits.**
 
+🔗 **Live site: [zehadkhan.github.io/dev-lessons](https://zehadkhan.github.io/dev-lessons/)**
+
 Most technical concepts are hard to grasp from text alone. These lessons animate the *mechanism* — data flowing, states flipping, things breaking and being fixed — so the intuition clicks. Press play and watch it happen.
 
 Each lesson is a single self-contained HTML file. No build step, no dependencies, no framework. Open it in a browser and it just works.
 
 ## 🔗 Live site
 
-> Enable **GitHub Pages** (Settings → Pages → Deploy from `main` / root) and the site is live at
-> `https://zehadkhan.github.io/dev-lessons/`
+The site is served with **GitHub Pages** from `main` / root:
+
+**→ [https://zehadkhan.github.io/dev-lessons/](https://zehadkhan.github.io/dev-lessons/)**
+
+Light and dark themes are both supported — it follows your system setting, with a ☀/☾ toggle on every page.
 
 ## 📚 Lessons
 
