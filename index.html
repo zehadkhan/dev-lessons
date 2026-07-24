@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev Lessons — Animated walkthroughs of hard engineering problems</title>
+<meta name="description" content="Interactive, animated lessons on the critical backend, database and DevOps problems every engineer eventually hits — built from real production experience.">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --accent:#a78bfa; --accent2:#3fb0ac; --file:#f0a742; --db:#4a9eea; --ok:#5bd68f; --danger:#f0616d;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+
+  /* hero */
+  .hero{padding:70px 0 50px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;top:-120px;right:-120px;width:340px;height:340px;
+    background:radial-gradient(circle,rgba(167,139,250,.14),transparent 70%);pointer-events:none}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:18px}
+  h1{font-size:42px;font-weight:700;letter-spacing:-1px;line-height:1.1;max-width:16ch}
+  h1 .hl{color:var(--accent)}
+  .lead{color:var(--dim);font-size:17px;margin-top:20px;max-width:56ch}
+  .herometa{display:flex;gap:26px;margin-top:32px;flex-wrap:wrap}
+  .herometa div{font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+  .herometa b{color:var(--ink);font-weight:600}
+
+  /* section */
+  .sec{padding:52px 0}
+  .sectitle{font-family:var(--mono);font-size:12px;letter-spacing:1.5px;color:var(--faint);
+    text-transform:uppercase;margin-bottom:24px;display:flex;align-items:center;gap:12px}
+  .sectitle::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* lesson cards */
+  .grid{display:grid;gap:16px}
+  .card{display:block;text-decoration:none;color:inherit;background:var(--panel);
+    border:1px solid var(--line);border-radius:14px;padding:24px;transition:.2s;position:relative;overflow:hidden}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card.soon{opacity:.55;pointer-events:none}
+  .cardtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .num{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:600}
+  .tag{font-family:var(--mono);font-size:10.5px;padding:4px 10px;border-radius:20px;border:1px solid;letter-spacing:.5px}
+  .tag.devops{color:var(--accent2);border-color:#1f4a48;background:#0f2b2a}
+  .tag.db{color:var(--db);border-color:#14304d;background:#0d2033}
+  .tag.pay{color:var(--file);border-color:#5a4218;background:#2a2010}
+  .tag.soon{color:var(--faint);border-color:var(--line);background:var(--panel2)}
+  .card h3{font-size:20px;font-weight:600;letter-spacing:-.3px;margin-bottom:8px}
+  .card p{color:var(--dim);font-size:14px;line-height:1.55}
+  .cardfoot{display:flex;align-items:center;gap:16px;margin-top:18px;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .cardfoot .go{color:var(--accent);margin-left:auto;font-weight:600}
+
+  /* how it helps */
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .pillar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .pillar .pic{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;
+    font-family:var(--mono);font-size:16px;margin-bottom:14px;background:var(--panel2)}
+  .pillar h4{font-size:15px;font-weight:600;margin-bottom:6px}
+  .pillar p{color:var(--dim);font-size:13px;line-height:1.55}
+
+  /* footer */
+  footer{border-top:1px solid var(--line);padding:36px 0;margin-top:20px;text-align:center;
+    color:var(--faint);font-family:var(--mono);font-size:12px}
+  footer a{color:var(--accent);text-decoration:none}
+
+  @media(max-width:640px){
+    h1{font-size:30px}.lead{font-size:15px}
+    .pillars{grid-template-columns:1fr}
+    .hero{padding:48px 0 36px}.sec{padding:40px 0}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Dev Lessons</div>
+    <h1>The hard problems, <span class="hl">animated</span> until they click.</h1>
+    <p class="lead">Interactive walkthroughs of the critical backend, database and DevOps problems every engineer eventually runs into. Each lesson animates the mechanism step by step — press play and watch it happen, instead of reading a wall of text.</p>
+    <div class="herometa">
+      <div><b>Open source</b> · MIT</div>
+      <div><b>No build step</b> · plain HTML</div>
+      <div><b>Real production</b> scenarios</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="sec">
+    <div class="sectitle">Lessons</div>
+    <div class="grid">
+
+      <a class="card" href="lessons/01-zero-downtime-migration/">
+        <div class="cardtop">
+          <span class="num">Lesson 01</span>
+          <span class="tag devops">DevOps</span>
+        </div>
+        <h3>Zero-downtime server migration</h3>
+        <p>Move a 500GB site with a live MySQL database to a new host — without losing a single row and with only minutes of downtime. Covers rsync resumability, replication as a live mirror, tmux against dropped connections, and the cutover-night sequence.</p>
+        <div class="cardfoot">
+          <span>~10 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/02-idempotent-payment-webhooks/">
+        <div class="cardtop">
+          <span class="num">Lesson 02</span>
+          <span class="tag pay">Payments</span>
+        </div>
+        <h3>Idempotent payment webhooks</h3>
+        <p>Why the same payment event fires twice, how a race condition double-charges a customer, and the idempotency-key pattern — enforced by a database unique constraint — that makes every retry a harmless no-op.</p>
+        <div class="cardfoot">
+          <span>~8 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/03-n-plus-one-query/">
+        <div class="cardtop">
+          <span class="num">Lesson 03</span>
+          <span class="tag db">Database</span>
+        </div>
+        <h3>The N+1 query, seen live</h3>
+        <p>Watch one innocent loop turn into hundreds of database round-trips — then watch eager loading collapse it back to two, no matter the row count. The classic ORM trap, visualized with a live query counter.</p>
+        <div class="cardfoot">
+          <span>~7 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sectitle">Why animated</div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pic" style="color:var(--accent2)">▶</div>
+        <h4>See the motion</h4>
+        <p>Data flowing, bars filling, states flipping. Motion carries the intuition that static box-and-arrow diagrams can't.</p>
+      </div>
+      <div class="pillar">
+        <div class="pic" style="color:var(--file)">⌘</div>
+        <h4>Real commands</h4>
+        <p>Every lesson pairs the animation with the exact commands you'd actually run, so it's a reference, not just a demo.</p>
+      </div>
+      <div class="pillar">
+        <div class="pic" style="color:var(--db)">◆</div>
+        <h4>Failure-first</h4>
+        <p>Each lesson shows what breaks and why — the dropped SSH, the double charge, the lost row — then how the pattern prevents it.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    Built for engineers, by an engineer · <a href="#">View on GitHub</a> · MIT License
+  </div>
+</footer>
+
+</body>
+</html>

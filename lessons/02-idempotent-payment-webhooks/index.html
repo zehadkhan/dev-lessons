@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 02 · Idempotent payment webhooks</title>
+<meta name="description" content="Why the same payment webhook fires twice, how a race condition double-charges a customer, and the idempotency pattern that makes retries safe — animated.">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --new:#a78bfa; --newbg:#221a3a; --newln:#3a2d63;
+    --file:#f0a742; --db:#4a9eea; --danger:#f0616d; --ok:#5bd68f;
+    --stripe:#635bff; --stripebg:#1a1840;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;padding:0 0 70px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  a{color:var(--new)}
+  .back{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12.5px;color:var(--dim);text-decoration:none;margin:26px 0 0}
+  .back:hover{color:var(--new)}
+  header.lesson{padding:24px 0 30px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--file);text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:1.15}
+  .lead{color:var(--dim);font-size:16px;margin-top:16px;max-width:62ch}
+  .meta{display:flex;gap:20px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--faint);flex-wrap:wrap}
+
+  .prose{padding:34px 0 10px}
+  .prose h2{font-size:21px;font-weight:600;letter-spacing:-.3px;margin:36px 0 12px}
+  .prose h3{font-size:16px;font-weight:600;margin:26px 0 8px}
+  .prose p{color:#cdd7e1;font-size:15.5px;margin-bottom:14px}
+  .prose ul{margin:0 0 16px 0;padding-left:4px;list-style:none}
+  .prose li{color:#cdd7e1;font-size:15px;margin-bottom:9px;padding-left:22px;position:relative}
+  .prose li::before{content:"▸";position:absolute;left:0;color:var(--file)}
+  .prose code{font-family:var(--mono);font-size:13px;background:var(--panel2);padding:2px 6px;border-radius:5px;color:#e6b980;border:1px solid var(--line)}
+  .prose strong{color:var(--ink);font-weight:600}
+  .callout{border-left:3px solid var(--file);background:#1a1710;border-radius:0 8px 8px 0;padding:14px 18px;margin:20px 0;font-size:14.5px;color:#e8dcc4}
+  .callout b{color:var(--file)}
+  .callout.warn{border-color:var(--danger);background:#1a1012;color:#f0cdd0}
+  .callout.warn b{color:var(--danger)}
+  pre{background:#0a0e13;border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.7}
+  pre .c{color:var(--faint)}pre .g{color:var(--ok)}pre .y{color:var(--file)}pre .p{color:var(--new)}pre .b{color:var(--db)}pre .r{color:var(--danger)}
+
+  /* widget */
+  .widget{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 18px;margin:26px 0}
+  .wtitle{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--faint);text-transform:uppercase;margin-bottom:16px}
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:18px}
+  button{font-family:var(--mono);font-size:12.5px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 14px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:6px}
+  button:hover{border-color:var(--faint);background:#232d3a}
+  button.primary{background:var(--file);border-color:var(--file);color:#1f1405;font-weight:600}
+  button.primary:hover{background:#f5b95a}
+  button.safe{background:var(--ok);border-color:var(--ok);color:#08210f;font-weight:600}
+  button.safe:hover{background:#75e0a3}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .mode{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;align-items:center;gap:6px}
+  .mode b{color:var(--ink)}
+
+  .stage{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:22px 16px;overflow:hidden}
+  .flow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;align-items:start}
+  .node{border-radius:10px;padding:14px 12px;border:1px solid;transition:.3s;position:relative;min-height:150px}
+  .node.stripe{background:var(--stripebg);border-color:#2e2a6b}
+  .node.app{background:var(--newbg);border-color:var(--newln)}
+  .node.db{background:#0d2033;border-color:#14304d}
+  .node .nh{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;margin-bottom:12px}
+  .node.stripe .nh{color:var(--stripe)}.node.app .nh{color:var(--new)}.node.db .nh{color:var(--db)}
+  .node .ni{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;flex-shrink:0}
+  .node.stripe .ni{background:#2e2a6b;color:#a9a3ff}
+  .node.app .ni{background:var(--newln);color:#c9b8ff}
+  .node.db .ni{background:#14304d;color:#7cc0f5}
+
+  .event{font-family:var(--mono);font-size:10.5px;padding:6px 9px;border-radius:6px;background:#00000030;border:1px solid var(--line);margin-bottom:6px;transition:.3s;opacity:.35}
+  .event.fire{opacity:1;border-color:var(--stripe);color:#c4c0ff}
+  .event .id{color:var(--faint)}
+
+  .check{font-family:var(--mono);font-size:11px;padding:7px 10px;border-radius:6px;margin-bottom:6px;background:#00000030;border:1px solid var(--line);opacity:.3;transition:.3s;display:flex;align-items:center;gap:7px}
+  .check.on{opacity:1}
+  .check.pass{border-color:#1f5a3a;background:#0f2a1c;color:var(--ok)}
+  .check.block{border-color:#5a4218;background:#2a2010;color:var(--file)}
+  .check.fail{border-color:#5a2028;background:#2a1015;color:var(--danger)}
+
+  .ledger{margin-top:6px}
+  .charge{font-family:var(--mono);font-size:11px;padding:8px 10px;border-radius:6px;margin-bottom:6px;border:1px solid var(--line);background:#00000030;opacity:0;transform:translateX(-6px);transition:.4s;display:flex;justify-content:space-between}
+  .charge.show{opacity:1;transform:none}
+  .charge.ok{border-color:#1f5a3a;background:#0f2a1c;color:var(--ok)}
+  .charge.dup{border-color:#5a2028;background:#2a1015;color:var(--danger)}
+  .charge .amt{font-weight:600}
+
+  .arrow{position:relative;height:2px;background:var(--line);margin:70px 0 0;transition:.3s}
+  .arrow.on{background:var(--file)}
+  .arrow.safe.on{background:var(--ok)}
+
+  .verdict{margin-top:18px;padding:14px 16px;border-radius:10px;font-size:14px;text-align:center;font-weight:600;border:1px solid;transition:.4s;opacity:0}
+  .verdict.show{opacity:1}
+  .verdict.bad{background:#2a1015;border-color:#5a2028;color:var(--danger)}
+  .verdict.good{background:#0f2a1c;border-color:#1f5a3a;color:var(--ok)}
+
+  .lnav{display:flex;justify-content:space-between;margin-top:44px;padding-top:24px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13px}
+  .lnav a{text-decoration:none;color:var(--dim)}.lnav a:hover{color:var(--new)}
+  @media(max-width:640px){h1{font-size:26px}.flow{grid-template-columns:1fr;gap:10px}.arrow{display:none}.node{min-height:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../../">← All lessons</a>
+  <header class="lesson">
+    <div class="eyebrow">Lesson 02 · Payments</div>
+    <h1>Idempotent payment webhooks</h1>
+    <p class="lead">Your payment provider sends a webhook when a customer pays. Simple — until the same event arrives twice and your customer gets charged twice. This isn't a bug in your code so much as a fact of how webhooks work. Here's why duplicates happen, and the one pattern that makes every retry harmless.</p>
+    <div class="meta"><span>~8 min read</span><span>Intermediate</span><span>Webhooks · idempotency · races</span></div>
+  </header>
+
+  <div class="prose">
+    <h2>Webhooks are "at least once", never "exactly once"</h2>
+    <p>Every serious payment provider — Stripe, PayPal, Apple — promises to deliver a webhook <em>at least once</em>. That word "least" is doing a lot of work. If your server is slow to respond, times out, or returns a 500, the provider assumes you didn't get it and <strong>sends it again.</strong> Sometimes the first one actually did arrive and finish; you just answered too slowly. Now the same <code>payment.succeeded</code> event is in your queue twice.</p>
+    <p>If your handler naively does "insert a payment row, extend the subscription" every time it's called, two deliveries mean two payment rows and, worse, two charges. This is one of the most common — and most expensive — mistakes in payment integrations.</p>
+
+    <h2>See the double charge happen</h2>
+    <p>Run the <strong>naïve handler</strong> first and watch the same event fire twice, sail through with no guard, and produce two charges. Then switch to the <strong>idempotent handler</strong> and watch the duplicate get caught and dropped.</p>
+
+    <div class="widget">
+      <div class="wtitle">Same event, delivered twice</div>
+      <div class="controls">
+        <button class="primary" id="runNaive">▶ Run naïve handler</button>
+        <button class="safe" id="runSafe">▶ Run idempotent handler</button>
+        <button id="reset">↺ Reset</button>
+        <div class="mode">Handler: <b id="modeLabel">—</b></div>
+      </div>
+
+      <div class="stage">
+        <div class="flow">
+          <div class="node stripe">
+            <div class="nh"><span class="ni">◈</span>Payment provider</div>
+            <div class="event" id="ev1"><span class="id">evt_8f2a</span> · payment.succeeded</div>
+            <div class="event" id="ev2"><span class="id">evt_8f2a</span> · <span style="color:var(--danger)">retry</span></div>
+          </div>
+          <div class="node app">
+            <div class="nh"><span class="ni">◆</span>Your webhook handler</div>
+            <div class="check" id="ck1">Received event</div>
+            <div class="check" id="ck2">Seen this event before?</div>
+            <div class="check" id="ck3">Process payment</div>
+          </div>
+          <div class="node db">
+            <div class="nh"><span class="ni">▦</span>Database</div>
+            <div class="ledger" id="ledger"></div>
+          </div>
+        </div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </div>
+
+    <h2>The fix: an idempotency key</h2>
+    <p>Every webhook carries a unique event ID (<code>evt_8f2a…</code>). The fix is to treat that ID as an <strong>idempotency key</strong>: before doing any work, record that you've seen this ID — and if you've seen it before, stop immediately.</p>
+
+    <h3>1 · A table that enforces uniqueness</h3>
+    <p>The real guarantee lives in the database, not your code. A <strong>unique constraint</strong> on the event ID means even two requests racing at the exact same millisecond can't both win — the database rejects the second insert.</p>
+    <pre><span class="c">-- the unique index is the actual safety mechanism</span>
+CREATE TABLE processed_events (
+  event_id   VARCHAR(255) <span class="y">UNIQUE NOT NULL</span>,
+  created_at TIMESTAMP DEFAULT now()
+);</pre>
+
+    <h3>2 · Claim the event before processing</h3>
+    <p>Try to insert the event ID first. If the insert fails on the unique constraint, a duplicate got here first — you return <code>200 OK</code> and do nothing. Returning 200 is important: it tells the provider "received, stop retrying."</p>
+    <pre><span class="c">// pseudo-code — same shape in any language</span>
+try {
+  db.insert(<span class="b">'processed_events'</span>, { event_id: event.id });
+} catch (<span class="r">UniqueViolation</span>) {
+  return <span class="g">200</span>;  <span class="c">// already handled — safe no-op</span>
+}
+processPayment(event);  <span class="c">// only the first delivery reaches here</span>
+return <span class="g">200</span>;</pre>
+
+    <h3>3 · Wrap it in one transaction</h3>
+    <p>Claim the event and record the payment in the <strong>same database transaction</strong>. If processing fails halfway, the whole thing rolls back — including the claim — so the provider's retry can safely try again. Half-done state is what turns a retry into a double charge.</p>
+
+    <div class="callout"><b>Why the DB and not a cache?</b> An in-memory check ("have I seen this ID?") looks like it works until two requests read "no" at the same instant and both proceed. Only a unique constraint in the database is atomic enough to win that race every time.</div>
+
+    <div class="callout warn"><b>Also verify the signature.</b> Before trusting any webhook, verify its cryptographic signature against your endpoint secret. Idempotency stops duplicates; signature verification stops forged events. You need both.</div>
+
+    <h2>The takeaway</h2>
+    <p>You can't stop your payment provider from sending duplicates — that's by design, and it's what makes delivery reliable. What you <em>can</em> do is make your handler not care: process each event ID exactly once, enforced by the database, inside a transaction. Do that and every retry, every timeout, every network hiccup becomes a harmless no-op.</p>
+
+    <div class="lnav">
+      <a href="../01-zero-downtime-migration/">← Lesson 01</a>
+      <a href="../03-n-plus-one-query/">Lesson 03 →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let busy=false,timers=[];
+const wait=ms=>new Promise(r=>{const t=setTimeout(r,ms);timers.push(t);});
+function clr(){timers.forEach(clearTimeout);timers=[];}
+
+function addCharge(label,amt,cls){
+  const d=document.createElement('div');d.className='charge '+cls;
+  d.innerHTML=`<span>${label}</span><span class="amt">${amt}</span>`;
+  $('ledger').appendChild(d);requestAnimationFrame(()=>d.classList.add('show'));
+}
+function setCheck(id,txt,cls){const el=$(id);el.className='check on '+(cls||'');el.innerHTML=txt;}
+
+function reset(){
+  clr();busy=false;
+  ['ev1','ev2'].forEach(id=>$(id).classList.remove('fire'));
+  ['ck1','ck2','ck3'].forEach(id=>{$(id).className='check';});
+  $('ck1').textContent='Received event';
+  $('ck2').textContent='Seen this event before?';
+  $('ck3').textContent='Process payment';
+  $('ledger').innerHTML='';
+  $('verdict').className='verdict';$('verdict').textContent='';
+  $('modeLabel').textContent='—';
+  $('runNaive').disabled=false;$('runSafe').disabled=false;
+}
+
+async function runNaive(){
+  if(busy)return;reset();busy=true;$('runNaive').disabled=true;$('runSafe').disabled=true;
+  $('modeLabel').textContent='naïve (no guard)';$('modeLabel').style.color='var(--danger)';
+
+  // delivery 1
+  $('ev1').classList.add('fire');await wait(600);
+  setCheck('ck1','Received evt_8f2a');await wait(500);
+  setCheck('ck2','No guard — skipped','fail');await wait(600);
+  setCheck('ck3','Charged $49.99','pass');
+  addCharge('evt_8f2a','−$49.99','ok');await wait(900);
+
+  // delivery 2 (retry)
+  $('ev2').classList.add('fire');await wait(600);
+  setCheck('ck1','Received evt_8f2a <span style="color:var(--danger)">(again)</span>');await wait(500);
+  setCheck('ck2','No guard — skipped','fail');await wait(600);
+  setCheck('ck3','Charged $49.99 AGAIN','fail');
+  addCharge('evt_8f2a (dup)','−$49.99','dup');await wait(700);
+
+  $('verdict').className='verdict show bad';
+  $('verdict').innerHTML='✕ Customer charged twice — $99.98 total';
+  busy=false;$('runNaive').disabled=false;$('runSafe').disabled=false;
+}
+
+async function runSafe(){
+  if(busy)return;reset();busy=true;$('runNaive').disabled=true;$('runSafe').disabled=true;
+  $('modeLabel').textContent='idempotent';$('modeLabel').style.color='var(--ok)';
+
+  // delivery 1
+  $('ev1').classList.add('fire');await wait(600);
+  setCheck('ck1','Received evt_8f2a');await wait(500);
+  setCheck('ck2','New — claim it','pass');await wait(600);
+  setCheck('ck3','Charged $49.99','pass');
+  addCharge('evt_8f2a','−$49.99','ok');await wait(900);
+
+  // delivery 2 (retry)
+  $('ev2').classList.add('fire');await wait(600);
+  setCheck('ck1','Received evt_8f2a <span style="color:var(--file)">(again)</span>');await wait(500);
+  setCheck('ck2','Already processed — block','block');await wait(600);
+  setCheck('ck3','Skipped · return 200','block');await wait(400);
+
+  $('verdict').className='verdict show good';
+  $('verdict').innerHTML='✓ Duplicate caught — charged once, $49.99';
+  busy=false;$('runNaive').disabled=false;$('runSafe').disabled=false;
+}
+
+$('runNaive').onclick=runNaive;
+$('runSafe').onclick=runSafe;
+$('reset').onclick=reset;
+reset();
+</script>
+</body>
+</html>

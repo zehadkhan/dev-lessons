@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 01 · Zero-downtime server migration</title>
+<meta name="description" content="Move a 500GB site with a live MySQL database to a new host without data loss and with only minutes of downtime — animated, step by step.">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --old:#3fb0ac; --oldbg:#0f2b2a; --oldln:#1f4a48;
+    --new:#a78bfa; --newbg:#221a3a; --newln:#3a2d63;
+    --file:#f0a742; --db:#4a9eea; --danger:#f0616d; --ok:#5bd68f;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;
+    padding:0 0 70px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  a{color:var(--new)}
+
+  .back{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12.5px;
+    color:var(--dim);text-decoration:none;margin:26px 0 0}
+  .back:hover{color:var(--new)}
+
+  header.lesson{padding:24px 0 30px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--new);text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:1.15}
+  .lead{color:var(--dim);font-size:16px;margin-top:16px;max-width:62ch}
+  .meta{display:flex;gap:20px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--faint);flex-wrap:wrap}
+
+  .prose{padding:34px 0 10px}
+  .prose h2{font-size:21px;font-weight:600;letter-spacing:-.3px;margin:36px 0 12px}
+  .prose h3{font-size:16px;font-weight:600;margin:26px 0 8px;color:var(--ink)}
+  .prose p{color:#cdd7e1;font-size:15.5px;margin-bottom:14px}
+  .prose ul{margin:0 0 16px 0;padding-left:4px;list-style:none}
+  .prose li{color:#cdd7e1;font-size:15px;margin-bottom:9px;padding-left:22px;position:relative}
+  .prose li::before{content:"▸";position:absolute;left:0;color:var(--new)}
+  .prose code{font-family:var(--mono);font-size:13px;background:var(--panel2);
+    padding:2px 6px;border-radius:5px;color:#e6b980;border:1px solid var(--line)}
+  .prose strong{color:var(--ink);font-weight:600}
+
+  .callout{border-left:3px solid var(--file);background:#1a1710;border-radius:0 8px 8px 0;
+    padding:14px 18px;margin:20px 0;font-size:14.5px;color:#e8dcc4}
+  .callout b{color:var(--file)}
+  .callout.warn{border-color:var(--danger);background:#1a1012;color:#f0cdd0}
+  .callout.warn b{color:var(--danger)}
+
+  /* code block */
+  pre{background:#0a0e13;border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+    overflow-x:auto;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.7}
+  pre .c{color:var(--faint)}
+  pre .g{color:var(--ok)}
+  pre .y{color:var(--file)}
+  pre .p{color:var(--new)}
+  pre .b{color:var(--db)}
+
+  /* ===== animation widget ===== */
+  .widget{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px 18px;margin:26px 0}
+  .wtitle{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--faint);
+    text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+  .wtitle .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);transition:.3s}
+  .wtitle .dot.on{background:var(--ok);box-shadow:0 0 9px var(--ok)}
+
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:18px}
+  button{font-family:var(--mono);font-size:12.5px;background:var(--panel2);color:var(--ink);
+    border:1px solid var(--line);border-radius:7px;padding:8px 14px;cursor:pointer;transition:.15s;
+    display:flex;align-items:center;gap:6px}
+  button:hover{border-color:var(--faint);background:#232d3a}
+  button.primary{background:var(--new);border-color:var(--new);color:#12091f;font-weight:600}
+  button.primary:hover{background:#b79dfb}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .speed{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--dim);font-size:11.5px}
+  .speed button{padding:5px 9px;font-size:11.5px}
+  .speed button.act{background:var(--new);color:#12091f;border-color:var(--new)}
+
+  .phases{display:flex;gap:5px;margin-bottom:16px;flex-wrap:wrap}
+  .ph{flex:1;min-width:105px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+    background:var(--panel2);transition:.3s;position:relative}
+  .ph.done{border-color:var(--oldln);background:var(--oldbg)}
+  .ph.cur{border-color:var(--new);background:var(--newbg);box-shadow:0 0 0 1px var(--new)}
+  .ph .n{font-family:var(--mono);font-size:9.5px;color:var(--faint);letter-spacing:1px}
+  .ph .t{font-size:11.5px;font-weight:600;margin-top:2px}
+  .ph.cur .t{color:var(--new)}
+  .ph .chk{position:absolute;top:8px;right:9px;color:var(--ok);font-size:11px;opacity:0;transition:.3s}
+  .ph.done .chk{opacity:1}
+
+  .stage{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:22px 16px;overflow:hidden}
+  .servers{display:grid;grid-template-columns:1fr 110px 1fr;align-items:stretch}
+  .server{border-radius:10px;padding:14px 12px;border:1px solid;transition:.4s;position:relative}
+  .server.old{background:var(--oldbg);border-color:var(--oldln)}
+  .server.new{background:var(--newbg);border-color:var(--newln)}
+  .server.dim{opacity:.4;filter:saturate(.4)}
+  .srv-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .srv-name{font-size:12.5px;font-weight:600}
+  .server.old .srv-name{color:var(--old)}
+  .server.new .srv-name{color:var(--new)}
+  .badge{font-family:var(--mono);font-size:9.5px;padding:3px 8px;border-radius:20px;border:1px solid;letter-spacing:.3px;transition:.3s}
+  .badge.live{color:var(--ok);border-color:#1f5a3a;background:#0f2a1c}
+  .badge.standby{color:var(--dim);border-color:var(--line);background:var(--panel)}
+  .badge.ro{color:var(--file);border-color:#5a4218;background:#2a2010}
+  .badge.maint{color:var(--danger);border-color:#5a2028;background:#2a1015}
+  .comp{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;background:#0000002e;
+    border:1px solid transparent;margin-bottom:6px;font-size:11.5px;transition:.3s}
+  .comp .ic{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;font-size:10px;flex-shrink:0}
+  .comp .ic.web{background:#1d3a4a;color:#6cc5f0}
+  .comp .ic.db{background:#14304d;color:var(--db)}
+  .comp .ic.files{background:#3a2c12;color:var(--file)}
+  .comp .label{flex:1}
+  .comp .meta{color:var(--faint);font-size:10px}
+  .comp .fill{height:4px;border-radius:3px;background:var(--line);overflow:hidden;flex:1;max-width:70px}
+  .comp .fill i{display:block;height:100%;width:0;border-radius:3px;transition:width .3s linear}
+  .comp .fill i.f{background:var(--file)}
+  .comp .fill i.d{background:var(--db)}
+  .comp.active{border-color:#ffffff1a;background:#ffffff08}
+  .comp .pct{font-size:10px;color:var(--dim);min-width:30px;text-align:right}
+
+  .pipe{position:relative;display:grid;place-items:center}
+  .pipe .lbl{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--mono);
+    font-size:9.5px;color:var(--faint);background:var(--panel2);padding:2px 6px;border-radius:10px;
+    white-space:nowrap;z-index:3;transition:.3s;opacity:0}
+  .pipe .lbl.show{opacity:1}
+  .track{position:absolute;top:50%;left:6%;right:6%;height:2px;background:var(--line);transform:translateY(-50%)}
+  .track.tun{top:calc(50% + 30px)}
+  .track.on{background:linear-gradient(90deg,var(--oldln),var(--newln))}
+  .pkt{position:absolute;width:8px;height:8px;border-radius:50%;top:50%;transform:translateY(-50%);
+    opacity:0;z-index:2;box-shadow:0 0 8px currentColor}
+  .pkt.file{background:var(--file);color:var(--file)}
+  .pkt.db{background:var(--db);color:var(--db)}
+  .pkt.sync{background:var(--new);color:var(--new);width:6px;height:6px}
+
+  .dtwrap{margin-top:18px;display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .dtbar{flex:1;height:9px;border-radius:6px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+  .dtbar i{display:block;height:100%;width:0;background:var(--ok);transition:width .4s}
+  .dtbar i.down{background:var(--danger)}
+  .dtval{font-weight:600;min-width:60px;text-align:right}
+  .dtval.down{color:var(--danger)}
+
+  .logwrap{margin-top:16px;background:#0a0e13;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .loghead{padding:8px 13px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;
+    color:var(--dim);display:flex;align-items:center;gap:7px;letter-spacing:.5px}
+  .loghead .d3{width:7px;height:7px;border-radius:50%}
+  .log{padding:11px 13px;height:160px;overflow-y:auto;font-family:var(--mono);font-size:11.5px;line-height:1.7}
+  .log .row{display:flex;gap:9px;opacity:0;transform:translateY(4px);animation:in .3s forwards}
+  @keyframes in{to{opacity:1;transform:none}}
+  .log .ts{color:var(--faint);flex-shrink:0}
+  .log .cmd .g{color:var(--ok)}.log .cmd .b{color:var(--db)}.log .cmd .y{color:var(--file)}
+  .log .cmd .p{color:var(--new)}.log .cmd .r{color:var(--danger)}.log .cmd .d{color:var(--dim)}
+
+  .lnav{display:flex;justify-content:space-between;margin-top:44px;padding-top:24px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:13px}
+  .lnav a{text-decoration:none;color:var(--dim)}
+  .lnav a:hover{color:var(--new)}
+
+  @media(max-width:640px){
+    h1{font-size:26px}
+    .servers{grid-template-columns:1fr;gap:12px}.pipe{display:none}
+    .phases .ph{min-width:calc(50% - 3px)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="../../">← All lessons</a>
+
+  <header class="lesson">
+    <div class="eyebrow">Lesson 01 · DevOps</div>
+    <h1>Zero-downtime server migration</h1>
+    <p class="lead">You need to move a live site — 500GB of files and a MySQL database that's being written to every second — onto a completely new host. The rule from the client: don't lose a single row, and keep downtime to minutes. Here's the pattern that makes it safe, animated end to end.</p>
+    <div class="meta"><span>~10 min read</span><span>Intermediate</span><span>MySQL · rsync · replication</span></div>
+  </header>
+
+  <div class="prose">
+
+    <h2>The trap everyone falls into first</h2>
+    <p>The obvious plan is: take a database dump, copy the files, restore everything on the new server, switch DNS. It works right up until you notice the problem — <strong>anything written to the old database after you took the dump is gone.</strong> A customer places an order during the copy, and that order never makes it to the new server. For a 500GB site the copy alone takes hours, so that's a very wide window to lose data in.</p>
+    <p>The fix is to stop thinking of it as one big copy-and-switch, and instead split it into three moves: a <strong>bulk copy</strong> while the site stays live, a <strong>live replica</strong> that keeps the new database in sync in real time, and a tiny <strong>cutover</strong> window at the end where almost nothing is left to do.</p>
+
+    <h2>Watch it happen</h2>
+    <p>Press <strong>Play</strong> to run the whole migration, or use <strong>Step</strong> to move through it one phase at a time. Watch the badges on each server change, and keep an eye on the <em>Site status</em> bar at the bottom — that red slice is the only real downtime.</p>
+
+    <!-- ===== WIDGET ===== -->
+    <div class="widget">
+      <div class="wtitle"><span class="dot" id="livedot"></span>Live migration · press play</div>
+
+      <div class="controls">
+        <button class="primary" id="play"><span id="playIc">▶</span> <span id="playTx">Play</span></button>
+        <button id="step">Step ▷</button>
+        <button id="reset">↺ Reset</button>
+        <div class="speed">Speed
+          <button data-sp="1.6" id="s1">0.5×</button>
+          <button data-sp="0.8" class="act" id="s2">1×</button>
+          <button data-sp="0.35" id="s3">2×</button>
+        </div>
+      </div>
+
+      <div class="phases" id="phases"></div>
+
+      <div class="stage">
+        <div class="servers">
+          <div class="server old" id="oldSrv">
+            <div class="srv-head"><span class="srv-name">Old server · source</span><span class="badge live" id="oldBadge">LIVE</span></div>
+            <div class="comp" id="oWeb"><span class="ic web">◈</span><span class="label">Apache · app</span><span class="meta">serving</span></div>
+            <div class="comp" id="oFiles"><span class="ic files">▤</span><span class="label">Files</span><span class="fill"><i class="f" id="oFilesBar"></i></span><span class="pct" id="oFilesPct">500G</span></div>
+            <div class="comp" id="oDb"><span class="ic db">▦</span><span class="label">MySQL</span><span class="meta" id="oDbMeta">binlog on</span></div>
+          </div>
+          <div class="pipe">
+            <div class="track" id="trkMain"></div>
+            <div class="track tun" id="trkTun"></div>
+            <div class="lbl" id="pipeLbl">rsync</div>
+            <div class="pkt file" id="p1"></div><div class="pkt file" id="p2"></div>
+            <div class="pkt db" id="p3"></div>
+            <div class="pkt sync" id="p4"></div><div class="pkt sync" id="p5"></div>
+          </div>
+          <div class="server new dim" id="newSrv">
+            <div class="srv-head"><span class="srv-name">New server · replica</span><span class="badge standby" id="newBadge">STANDBY</span></div>
+            <div class="comp" id="nWeb"><span class="ic web">◈</span><span class="label">Apache · app</span><span class="meta" id="nWebMeta">idle</span></div>
+            <div class="comp" id="nFiles"><span class="ic files">▤</span><span class="label">Files</span><span class="fill"><i class="f" id="nFilesBar"></i></span><span class="pct" id="nFilesPct">0G</span></div>
+            <div class="comp" id="nDb"><span class="ic db">▦</span><span class="label">MySQL</span><span class="fill"><i class="d" id="nDbBar"></i></span><span class="pct" id="nDbPct">empty</span></div>
+          </div>
+        </div>
+        <div class="dtwrap"><span>Site status</span><div class="dtbar"><i id="dtBar"></i></div><span class="dtval" id="dtVal">100% up</span></div>
+      </div>
+
+      <div class="logwrap">
+        <div class="loghead"><span class="d3" style="background:var(--danger)"></span><span class="d3" style="background:var(--file)"></span><span class="d3" style="background:var(--ok)"></span>&nbsp; tmux · migration session</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <h2>The four moves, in commands</h2>
+
+    <h3>0 · Prep the new server (old one stays live)</h3>
+    <p>Install the same stack — matching web server and, crucially, a MySQL version that is the <strong>same or newer</strong> than the old one. A dump taken on a newer MySQL will not always restore onto an older one.</p>
+
+    <div class="callout"><b>Survival rule:</b> run every long command inside <code>tmux</code>. If your SSH drops mid-transfer, the process keeps running on the server — you just reconnect and reattach. Without it, a dropped connection kills a 3-hour copy at 90%.</div>
+
+    <pre><span class="c"># on the new server</span>
+tmux new -s migration</pre>
+
+    <h3>1 · Bulk-copy the files while live</h3>
+    <p>Copy the bulk of the 500GB now, with the site still serving. The <code>-P</code> flag is what makes this safe to interrupt: if it dies, run the exact same command again and it <strong>resumes</strong> — already-copied files are skipped. Exclude logs and cache; there's no reason to ship gigabytes of old log files.</p>
+
+    <pre>rsync <span class="y">-avzP</span> --exclude=<span class="g">'storage/logs'</span> --exclude=<span class="g">'storage/framework/cache'</span> \
+      /var/www/html/ root@<span class="p">NEW_IP</span>:/var/www/html/</pre>
+
+    <h3>2 · Dump and restore the database</h3>
+    <p>Take a consistent snapshot without locking the site. <code>--single-transaction</code> gives you a clean point-in-time view of InnoDB tables without blocking writes, and <code>--source-data=2</code> records exactly where in the binary log the snapshot was taken — you'll need that position in the next step.</p>
+
+    <pre>mysqldump -u root -p <span class="y">--single-transaction --source-data=2</span> \
+      --routines --triggers --quick app_db | gzip &gt; dump.sql.gz</pre>
+
+    <h3>3 · Turn the new database into a live replica</h3>
+    <p>Point the new server's MySQL at the old one, starting from the binlog position the dump recorded. From this moment the new database <strong>follows every write on the old one in real time.</strong> A tunnel keeps the connection encrypted so you never expose the database port publicly.</p>
+
+    <pre><span class="c"># new server follows old, starting at the recorded position</span>
+CHANGE REPLICATION SOURCE TO
+  SOURCE_HOST=<span class="g">'127.0.0.1'</span>, SOURCE_PORT=3307,
+  SOURCE_USER=<span class="g">'repl'</span>, SOURCE_LOG_FILE=<span class="g">'mysql-bin.000003'</span>, SOURCE_LOG_POS=157;
+<span class="p">START REPLICA;</span></pre>
+
+    <p>Check it's caught up. These three lines are the whole game:</p>
+    <pre>Replica_IO_Running:  <span class="g">Yes</span>
+Replica_SQL_Running: <span class="g">Yes</span>
+Seconds_Behind_Source: <span class="g">0</span></pre>
+
+    <h3>4 · Cutover night</h3>
+    <p>Pick a low-traffic hour. Now — and only now — does the site go down, and only for minutes:</p>
+    <ul>
+      <li>Put the old site in <strong>maintenance mode</strong> so writes stop. This is the one non-negotiable step: it freezes the source so nothing can slip through during the switch.</li>
+      <li>Run a <strong>final rsync</strong> — only the handful of files that changed since the bulk copy. Seconds, not hours.</li>
+      <li>Confirm the replica shows <code>Seconds_Behind_Source: 0</code>.</li>
+      <li><strong>Promote</strong> the replica: <code>STOP REPLICA</code>, turn <code>read_only</code> off — it's a standalone database now.</li>
+      <li>Switch <strong>DNS</strong> to the new server. Behind Cloudflare this is effectively instant.</li>
+      <li>Test, then turn maintenance off. You're live.</li>
+    </ul>
+
+    <div class="callout warn"><b>Don't delete the old server yet.</b> Keep it running for a week or two after cutover. If anything looks wrong on the new host, pointing DNS back at the old one is your instant rollback — and it still has every row.</div>
+
+    <h2>Why this loses zero data</h2>
+    <p>The dump captured a consistent point in time. Replication carried every write <em>after</em> that point onto the new server continuously. And maintenance mode guaranteed no new writes happened during the final switch. There is no gap for a row to fall into — the three moves overlap so that every write is accounted for by at least one of them.</p>
+
+    <div class="lnav">
+      <a href="../../">← All lessons</a>
+      <a href="#" style="opacity:.4;pointer-events:none">Lesson 02 · soon →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const log=$('log'), phasesEl=$('phases');
+const PHASES=[
+  {n:'PHASE 0',t:'New server prep'},{n:'PHASE 1',t:'Bulk file rsync'},
+  {n:'PHASE 2',t:'DB dump + restore'},{n:'PHASE 3',t:'Live replication'},
+  {n:'PHASE 4',t:'Cutover night'},{n:'PHASE 5',t:'Done · verified'},
+];
+PHASES.forEach((p,i)=>{const d=document.createElement('div');d.className='ph';d.id='ph'+i;
+  d.innerHTML=`<span class="chk">✓</span><div class="n">${p.n}</div><div class="t">${p.t}</div>`;phasesEl.appendChild(d);});
+
+let SP=0.8,playing=false,aborted=false,timers=[];
+function wait(ms){return new Promise(r=>{const t=setTimeout(r,ms*SP);timers.push(t);});}
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function addLog(html){const n=new Date();
+  const ts=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+  const r=document.createElement('div');r.className='row';
+  r.innerHTML=`<span class="ts">${ts}</span><span class="cmd">${html}</span>`;log.appendChild(r);log.scrollTop=log.scrollHeight;}
+function setPhase(i){[...phasesEl.children].forEach((el,idx)=>{el.classList.toggle('cur',idx===i);el.classList.toggle('done',idx<i);});}
+function flyPacket(el,dir,dur,offY){return new Promise(res=>{
+  const pipe=el.parentElement.getBoundingClientRect();const w=pipe.width;
+  const sx=dir>0?w*0.06:w*0.94, ex=dir>0?w*0.94:w*0.06;
+  el.style.transition='none';el.style.opacity='1';el.style.left=sx+'px';
+  if(offY)el.style.top=`calc(50% + ${offY}px)`;el.getBoundingClientRect();
+  requestAnimationFrame(()=>{el.style.transition=`left ${dur*SP}ms linear, opacity .2s`;el.style.left=ex+'px';
+    const t=setTimeout(()=>{el.style.opacity='0';res();},dur*SP);timers.push(t);});});}
+async function streamPackets(pkts,dir,count,gap,dur,offY){for(let i=0;i<count;i++){if(aborted)return;
+  flyPacket(pkts[i%pkts.length],dir,dur,offY);await wait(gap);}}
+function fillBar(bar,pct,from,to,label,ms){return new Promise(res=>{const steps=30;let i=0;
+  const iv=setInterval(()=>{i++;const v=from+(to-from)*(i/steps);bar.style.width=v+'%';
+    if(pct)pct.textContent=label(v);if(i>=steps){clearInterval(iv);res();}},(ms*SP)/steps);timers.push(iv);});}
+function setDowntime(pct,down,txt){$('dtBar').style.width=pct+'%';$('dtBar').classList.toggle('down',down);
+  $('dtVal').textContent=txt;$('dtVal').classList.toggle('down',down);}
+
+async function run(){
+  playing=true;aborted=false;$('play').disabled=true;$('step').disabled=true;
+  $('playIc').textContent='';$('playTx').textContent='Running…';$('livedot').classList.add('on');
+  setPhase(0);
+  addLog('<span class="d">$</span> ssh root@<span class="p">new-server</span> · tmux new -s migration');
+  await wait(700);
+  addLog('<span class="g">✓</span> Rocky Linux + Apache + MySQL installed, versions matched');
+  $('nWebMeta').textContent='ready';$('newSrv').classList.remove('dim');await wait(900);
+
+  setPhase(1);$('pipeLbl').textContent='rsync files';$('pipeLbl').classList.add('show');
+  $('trkMain').classList.add('on');$('oFiles').classList.add('active');$('nFiles').classList.add('active');
+  addLog('<span class="d">$</span> rsync <span class="y">-avzP</span> --exclude=logs /var/www/html/ → new-server');
+  streamPackets([$('p1'),$('p2')],1,14,260,900,0);
+  await fillBar($('nFilesBar'),$('nFilesPct'),0,100,v=>Math.round(v/100*350)+'G',3600);
+  $('nFilesPct').textContent='350G';
+  addLog('<span class="g">✓</span> 350G files copied <span class="d">(logs/cache excluded — down from 500G)</span>');
+  $('oFiles').classList.remove('active');$('nFiles').classList.remove('active');$('pipeLbl').classList.remove('show');await wait(700);
+
+  setPhase(2);$('pipeLbl').textContent='mysqldump';$('pipeLbl').classList.add('show');
+  $('oDb').classList.add('active');$('nDb').classList.add('active');
+  addLog('<span class="d">$</span> mysqldump <span class="y">--single-transaction</span> --source-data=2 | gzip <span class="d">(no lock, site stays fast)</span>');
+  streamPackets([$('p3')],1,10,320,1000,0);
+  await fillBar($('nDbBar'),$('nDbPct'),0,100,v=>v<100?'restoring':'loaded',3000);
+  $('nDbPct').textContent='synced';
+  addLog('<span class="g">✓</span> Dump restored on new server + binlog position noted');
+  $('oDb').classList.remove('active');$('nDb').classList.remove('active');$('pipeLbl').classList.remove('show');await wait(700);
+
+  setPhase(3);$('trkTun').classList.add('on');
+  $('pipeLbl').textContent='SSH tunnel · binlog sync';$('pipeLbl').classList.add('show');
+  $('newBadge').textContent='RO · REPLICA';$('newBadge').className='badge ro';
+  addLog('<span class="d">$</span> autossh tunnel up · <span class="p">START REPLICA</span>');await wait(600);
+  addLog('<span class="p">→</span> Replica_IO_Running: <span class="g">Yes</span> · Seconds_Behind_Source: <span class="g">0</span>');
+  addLog('<span class="d">i</span> Every write on the old server now lands on the new one in real time');
+  streamPackets([$('p4'),$('p5')],1,16,300,1100,30);await wait(4800);
+  addLog('<span class="g">✓</span> Sync running continuously — new server is a live mirror');await wait(500);
+
+  setPhase(4);
+  addLog('<span class="r">▓</span> <span class="r">CUTOVER — low-traffic window</span>');await wait(700);
+  $('oldBadge').textContent='MAINTENANCE';$('oldBadge').className='badge maint';$('oWeb').classList.add('active');
+  setDowntime(50,true,'downtime');$('livedot').classList.remove('on');
+  addLog('<span class="d">1</span> Old server → <span class="r">maintenance mode</span> (writes stop)');await wait(1000);
+  $('pipeLbl').textContent='final rsync';streamPackets([$('p1'),$('p2')],1,5,220,700,0);
+  addLog('<span class="d">2</span> Final rsync — only changed files <span class="d">(a few minutes)</span>');await wait(1400);
+  addLog('<span class="d">3</span> Replica check → Seconds_Behind_Source: <span class="g">0</span> ✓');await wait(900);
+  $('newBadge').textContent='PROMOTED';$('newBadge').className='badge live';
+  addLog('<span class="d">4</span> <span class="p">STOP REPLICA</span> · read_only <span class="g">OFF</span> — standalone now');
+  $('trkTun').classList.remove('on');await wait(900);
+  $('pipeLbl').textContent='DNS → new IP';
+  addLog('<span class="d">5</span> DNS switch → domain points at <span class="p">new server</span>');await wait(1000);
+  $('oldBadge').textContent='STANDBY';$('oldBadge').className='badge standby';$('oldSrv').classList.add('dim');
+  $('oWeb').classList.remove('active');$('nWebMeta').textContent='serving';$('nWeb').classList.add('active');
+  $('pipeLbl').classList.remove('show');$('trkMain').classList.remove('on');
+  setDowntime(100,false,'back up');$('livedot').classList.add('on');
+  addLog('<span class="d">6</span> <span class="g">✓ Site LIVE on new server</span> — total downtime ~5-15 min');await wait(1000);
+
+  setPhase(5);$('ph5').classList.add('done');
+  addLog('<span class="g">✓✓</span> Zero data loss · old server kept 1-2 weeks as fallback');
+  addLog('<span class="d">i</span> Daily cron backup → off-server object storage');
+  $('play').disabled=false;$('step').disabled=false;$('playIc').textContent='↺';$('playTx').textContent='Replay';playing=false;
+}
+
+let stepIdx=-1;
+const stepFns=[
+  ()=>{setPhase(0);$('newSrv').classList.remove('dim');$('nWebMeta').textContent='ready';addLog('<span class="g">✓</span> New server prep — Apache, MySQL, versions matched');},
+  ()=>{setPhase(1);$('nFilesBar').style.width='100%';$('nFilesPct').textContent='350G';$('trkMain').classList.add('on');addLog('<span class="g">✓</span> Bulk rsync — 350G files copied (site live)');},
+  ()=>{setPhase(2);$('nDbBar').style.width='100%';$('nDbPct').textContent='synced';addLog('<span class="g">✓</span> DB dump + restore (--single-transaction, no lock)');},
+  ()=>{setPhase(3);$('trkTun').classList.add('on');$('newBadge').textContent='RO · REPLICA';$('newBadge').className='badge ro';addLog('<span class="p">→</span> Live replication · Seconds_Behind_Source: 0');},
+  ()=>{setPhase(4);$('oldBadge').textContent='MAINTENANCE';$('oldBadge').className='badge maint';setDowntime(50,true,'downtime');$('newBadge').textContent='PROMOTED';$('newBadge').className='badge live';$('trkTun').classList.remove('on');addLog('<span class="r">▓</span> Cutover — maintenance → final sync → promote → DNS switch');},
+  ()=>{setPhase(5);$('ph5').classList.add('done');$('oldSrv').classList.add('dim');$('nWeb').classList.add('active');$('nWebMeta').textContent='serving';setDowntime(100,false,'back up');$('livedot').classList.add('on');addLog('<span class="g">✓✓</span> Live on new server · zero data loss · ~5-15 min downtime');},
+];
+function doStep(){if(playing)return;stepIdx++;if(stepIdx>=stepFns.length){reset();stepIdx=-1;doStep();return;}stepFns[stepIdx]();}
+
+function reset(){
+  aborted=true;clearTimers();playing=false;stepIdx=-1;log.innerHTML='';setPhase(-1);
+  [...phasesEl.children].forEach(el=>el.classList.remove('cur','done'));
+  $('newSrv').classList.add('dim');$('oldSrv').classList.remove('dim');
+  $('oldBadge').textContent='LIVE';$('oldBadge').className='badge live';
+  $('newBadge').textContent='STANDBY';$('newBadge').className='badge standby';
+  $('nFilesBar').style.width='0';$('nFilesPct').textContent='0G';
+  $('nDbBar').style.width='0';$('nDbPct').textContent='empty';
+  $('oFilesBar').style.width='100%';$('oFilesPct').textContent='500G';
+  ['oWeb','oDb','oFiles','nWeb','nDb','nFiles'].forEach(id=>$(id).classList.remove('active'));
+  $('nWebMeta').textContent='idle';
+  $('trkMain').classList.remove('on');$('trkTun').classList.remove('on');$('pipeLbl').classList.remove('show');
+  ['p1','p2','p3','p4','p5'].forEach(id=>$(id).style.opacity='0');
+  setDowntime(100,false,'100% up');$('livedot').classList.remove('on');
+  $('play').disabled=false;$('step').disabled=false;$('playIc').textContent='▶';$('playTx').textContent='Play';
+}
+$('play').onclick=()=>{if(playing)return;reset();setTimeout(run,60);};
+$('step').onclick=doStep;$('reset').onclick=reset;
+document.querySelectorAll('.speed button').forEach(b=>{b.onclick=()=>{SP=parseFloat(b.dataset.sp);
+  document.querySelectorAll('.speed button').forEach(x=>x.classList.remove('act'));b.classList.add('act');};});
+reset();
+</script>
+</body>
+</html>
