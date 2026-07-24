@@ -47,6 +47,8 @@
   .tag.devops{color:var(--accent2);border-color:#1f4a48;background:#0f2b2a}
   .tag.db{color:var(--db);border-color:#14304d;background:#0d2033}
   .tag.pay{color:var(--file);border-color:#5a4218;background:#2a2010}
+  .tag.conc{color:var(--danger);border-color:#5a2028;background:#2a1015}
+  .tag.cache{color:var(--accent);border-color:#3a2d63;background:#221a3a}
   .tag.soon{color:var(--faint);border-color:var(--line);background:var(--panel2)}
   .card h3{font-size:20px;font-weight:600;letter-spacing:-.3px;margin-bottom:8px}
   .card p{color:var(--dim);font-size:14px;line-height:1.55}
@@ -94,7 +96,7 @@
     <div class="sectitle">Lessons</div>
     <div class="grid">
 
-      <a class="card" href="lessons/01-zero-downtime-migration/">
+      <a class="card" href="lessons/01-zero-downtime-migration/index.html">
         <div class="cardtop">
           <span class="num">Lesson 01</span>
           <span class="tag devops">DevOps</span>
@@ -108,7 +110,7 @@
         </div>
       </a>
 
-      <a class="card" href="lessons/02-idempotent-payment-webhooks/">
+      <a class="card" href="lessons/02-idempotent-payment-webhooks/index.html">
         <div class="cardtop">
           <span class="num">Lesson 02</span>
           <span class="tag pay">Payments</span>
@@ -122,7 +124,7 @@
         </div>
       </a>
 
-      <a class="card" href="lessons/03-n-plus-one-query/">
+      <a class="card" href="lessons/03-n-plus-one-query/index.html">
         <div class="cardtop">
           <span class="num">Lesson 03</span>
           <span class="tag db">Database</span>
@@ -131,6 +133,90 @@
         <p>Watch one innocent loop turn into hundreds of database round-trips — then watch eager loading collapse it back to two, no matter the row count. The classic ORM trap, visualized with a live query counter.</p>
         <div class="cardfoot">
           <span>~7 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/04-inventory-race-condition/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 04</span>
+          <span class="tag conc">Concurrency</span>
+        </div>
+        <h3>The inventory race condition</h3>
+        <p>One item left, two buyers click at the same instant, and your check-then-act code sells it twice. Watch the requests interleave through the microsecond gap — then watch one atomic UPDATE make the race impossible.</p>
+        <div class="cardfoot">
+          <span>~8 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/05-cache-stampede/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 05</span>
+          <span class="tag cache">Caching</span>
+        </div>
+        <h3>The cache stampede</h3>
+        <p>A hot cache key expires at peak traffic and every in-flight request hits the database with the same expensive query at once. Watch the thundering herd form — then watch a recompute lock and stale-while-revalidate flatten it to one query.</p>
+        <div class="cardfoot">
+          <span>~8 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/06-what-an-index-does/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 06</span>
+          <span class="tag db">Database</span>
+        </div>
+        <h3>What an index actually does</h3>
+        <p>Watch a query crawl through a million rows one by one, then watch a B-tree find the same row in four hops. Full scan vs indexed lookup with a live row counter, plus how to read EXPLAIN and when not to index.</p>
+        <div class="cardfoot">
+          <span>~7 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/07-rolling-deploys/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 07</span>
+          <span class="tag devops">DevOps</span>
+        </div>
+        <h3>Deploys that can't take the site down</h3>
+        <p>The same broken build, deployed two ways: big-bang to every server at once (full outage), then rolling with health checks — where it never gets past server one and users never notice. Plus blue-green and the mixed-version trap.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/08-read-replicas/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 08</span>
+          <span class="tag db">Scaling</span>
+        </div>
+        <h3>Read replicas and the vanishing write</h3>
+        <p>Scale reads with replica databases — then watch a user's own save "disappear" because the read hit a replica living two seconds in the past. Replication lag, and the read-your-writes routing rule that hides it.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/09-surviving-a-server-crash/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 09</span>
+          <span class="tag conc">Reliability</span>
+        </div>
+        <h3>Surviving a server crash at peak traffic</h3>
+        <p>A server OOMs on your busiest day. Without failover: 18 minutes of errors while a human wakes up. With health checks, a supervisor and N−1 headroom: a ten-second blip. The same crash, animated both ways.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
           <span>Interactive</span>
           <span class="go">Open lesson →</span>
         </div>
@@ -164,7 +250,7 @@
 
 <footer>
   <div class="wrap">
-    Built for engineers, by an engineer · <a href="#">View on GitHub</a> · MIT License
+    Built for engineers, by an engineer · <a href="https://github.com/zehadkhan/dev-lessons">View on GitHub</a> · MIT License
   </div>
 </footer>
 

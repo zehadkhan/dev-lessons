@@ -103,7 +103,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="../../">← All lessons</a>
+  <a class="back" href="../../index.html">← All lessons</a>
   <header class="lesson">
     <div class="eyebrow">Lesson 02 · Payments</div>
     <h1>Idempotent payment webhooks</h1>
@@ -183,8 +183,8 @@ return <span class="g">200</span>;</pre>
     <p>You can't stop your payment provider from sending duplicates — that's by design, and it's what makes delivery reliable. What you <em>can</em> do is make your handler not care: process each event ID exactly once, enforced by the database, inside a transaction. Do that and every retry, every timeout, every network hiccup becomes a harmless no-op.</p>
 
     <div class="lnav">
-      <a href="../01-zero-downtime-migration/">← Lesson 01</a>
-      <a href="../03-n-plus-one-query/">Lesson 03 →</a>
+      <a href="../01-zero-downtime-migration/index.html">← Lesson 01</a>
+      <a href="../03-n-plus-one-query/index.html">Lesson 03 →</a>
     </div>
   </div>
 </div>

@@ -82,7 +82,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="../../">← All lessons</a>
+  <a class="back" href="../../index.html">← All lessons</a>
   <header class="lesson">
     <div class="eyebrow">Lesson 03 · Database</div>
     <h1>The N+1 query, seen live</h1>
@@ -142,7 +142,7 @@ $posts = Post::<span class="y">with</span>(<span class="g">'author'</span>)->get
     <pre><span class="b">SELECT</span> * <span class="b">FROM</span> posts;
 <span class="b">SELECT</span> * <span class="b">FROM</span> authors <span class="b">WHERE</span> id <span class="y">IN</span> (1, 2, 3, ...);  <span class="c">-- all at once</span></pre>
 
-    <div class="callout"><b>Why two queries beat N+1.</b> Each database round-trip has fixed overhead — network hop, query parse, connection handling — often a millisecond or more, even for a trivial lookup. 500 tiny queries pay that tax 500 times. One <code>IN</code> query pays it once and lets the database do what it's good at: fetching many rows in a single scan.</p></div>
+    <div class="callout"><b>Why two queries beat N+1.</b> Each database round-trip has fixed overhead — network hop, query parse, connection handling — often a millisecond or more, even for a trivial lookup. 500 tiny queries pay that tax 500 times. One <code>IN</code> query pays it once and lets the database do what it's good at: fetching many rows in a single scan.</div>
 
     <h2>How to catch it in your own app</h2>
     <ul style="list-style:none;padding-left:4px">
@@ -157,8 +157,8 @@ $posts = Post::<span class="y">with</span>(<span class="g">'author'</span>)->get
     <p>N+1 hides because it works fine on small data and each query is individually cheap. It only bites at production scale, which is the worst time to discover it. The habit that saves you: whenever you touch a related record inside a loop, eager-load it before the loop. Two queries, flat forever.</p>
 
     <div class="lnav">
-      <a href="../02-idempotent-payment-webhooks/">← Lesson 02</a>
-      <a href="../../">All lessons →</a>
+      <a href="../02-idempotent-payment-webhooks/index.html">← Lesson 02</a>
+      <a href="../04-inventory-race-condition/index.html">Lesson 04 →</a>
     </div>
   </div>
 </div>

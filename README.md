@@ -8,8 +8,8 @@ Each lesson is a single self-contained HTML file. No build step, no dependencies
 
 ## 🔗 Live site
 
-> Enable **GitHub Pages** (Settings → Pages → Deploy from `main` / root) and your site will be live at
-> `https://<your-username>.github.io/dev-lessons/`
+> Enable **GitHub Pages** (Settings → Pages → Deploy from `main` / root) and the site is live at
+> `https://zehadkhan.github.io/dev-lessons/`
 
 ## 📚 Lessons
 
@@ -18,6 +18,12 @@ Each lesson is a single self-contained HTML file. No build step, no dependencies
 | 01 | [Zero-downtime server migration](lessons/01-zero-downtime-migration/) | DevOps | ✅ Live |
 | 02 | [Idempotent payment webhooks](lessons/02-idempotent-payment-webhooks/) | Payments | ✅ Live |
 | 03 | [The N+1 query, seen live](lessons/03-n-plus-one-query/) | Database | ✅ Live |
+| 04 | [The inventory race condition](lessons/04-inventory-race-condition/) | Concurrency | ✅ Live |
+| 05 | [The cache stampede](lessons/05-cache-stampede/) | Caching | ✅ Live |
+| 06 | [What an index actually does](lessons/06-what-an-index-does/) | Database | ✅ Live |
+| 07 | [Deploys that can't take the site down](lessons/07-rolling-deploys/) | DevOps | ✅ Live |
+| 08 | [Read replicas and the vanishing write](lessons/08-read-replicas/) | Scaling | ✅ Live |
+| 09 | [Surviving a server crash at peak traffic](lessons/09-surviving-a-server-crash/) | Reliability | ✅ Live |
 
 ## 💡 What makes these different
 

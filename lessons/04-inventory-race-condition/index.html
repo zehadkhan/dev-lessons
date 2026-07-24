@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 04 · The inventory race condition</title>
+<meta name="description" content="Two customers buy the last item at the same instant and you sell it twice. Watch the check-then-act race happen, then watch one atomic UPDATE make it impossible.">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --new:#a78bfa; --newbg:#221a3a; --newln:#3a2d63;
+    --file:#f0a742; --db:#4a9eea; --danger:#f0616d; --ok:#5bd68f;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;padding:0 0 70px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  a{color:var(--new)}
+  .back{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12.5px;color:var(--dim);text-decoration:none;margin:26px 0 0}
+  .back:hover{color:var(--new)}
+  header.lesson{padding:24px 0 30px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--danger);text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:1.15}
+  .lead{color:var(--dim);font-size:16px;margin-top:16px;max-width:62ch}
+  .meta{display:flex;gap:20px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--faint);flex-wrap:wrap}
+
+  .prose{padding:34px 0 10px}
+  .prose h2{font-size:21px;font-weight:600;letter-spacing:-.3px;margin:36px 0 12px}
+  .prose h3{font-size:16px;font-weight:600;margin:26px 0 8px}
+  .prose p{color:#cdd7e1;font-size:15.5px;margin-bottom:14px}
+  .prose ul{margin:0 0 16px 0;padding-left:4px;list-style:none}
+  .prose li{color:#cdd7e1;font-size:15px;margin-bottom:9px;padding-left:22px;position:relative}
+  .prose li::before{content:"▸";position:absolute;left:0;color:var(--danger)}
+  .prose code{font-family:var(--mono);font-size:13px;background:var(--panel2);padding:2px 6px;border-radius:5px;color:#e6b980;border:1px solid var(--line)}
+  .prose strong{color:var(--ink);font-weight:600}
+  .callout{border-left:3px solid var(--db);background:#0d1720;border-radius:0 8px 8px 0;padding:14px 18px;margin:20px 0;font-size:14.5px;color:#c9dced}
+  .callout b{color:var(--db)}
+  .callout.warn{border-color:var(--danger);background:#1a1012;color:#f0cdd0}
+  .callout.warn b{color:var(--danger)}
+  pre{background:#0a0e13;border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.7}
+  pre .c{color:var(--faint)}pre .g{color:var(--ok)}pre .y{color:var(--file)}pre .p{color:var(--new)}pre .b{color:var(--db)}pre .r{color:var(--danger)}
+
+  /* widget */
+  .widget{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 18px;margin:26px 0}
+  .wtitle{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--faint);text-transform:uppercase;margin-bottom:16px}
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:18px}
+  button{font-family:var(--mono);font-size:12.5px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 14px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:6px}
+  button:hover{border-color:var(--faint);background:#232d3a}
+  button.bad{background:var(--danger);border-color:var(--danger);color:#2a0d0f;font-weight:600}
+  button.bad:hover{background:#f4797f}
+  button.safe{background:var(--ok);border-color:var(--ok);color:#08210f;font-weight:600}
+  button.safe:hover{background:#75e0a3}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .mode{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;align-items:center;gap:6px}
+  .mode b{color:var(--ink)}
+
+  .stage{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:22px 16px;overflow:hidden}
+  .flow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:start}
+  .node{border-radius:10px;padding:14px 12px;border:1px solid;transition:.3s;position:relative;min-height:170px}
+  .node.app{background:var(--newbg);border-color:var(--newln)}
+  .node.appb{background:#102b20;border-color:#1f4a3a}
+  .node.db{background:#0d2033;border-color:#14304d}
+  .node .nh{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;margin-bottom:12px}
+  .node.app .nh{color:var(--new)}
+  .node.appb .nh{color:var(--ok)}
+  .node.db .nh{color:var(--db)}
+  .node .ni{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;flex-shrink:0}
+  .node.app .ni{background:var(--newln);color:#c9b8ff}
+  .node.appb .ni{background:#1f4a3a;color:#8fe6b5}
+  .node.db .ni{background:#14304d;color:#7cc0f5}
+
+  .check{font-family:var(--mono);font-size:11px;padding:7px 10px;border-radius:6px;margin-bottom:6px;background:#00000030;border:1px solid var(--line);opacity:.3;transition:.3s;display:flex;align-items:center;gap:7px}
+  .check.on{opacity:1}
+  .check.pass{border-color:#1f5a3a;background:#0f2a1c;color:var(--ok)}
+  .check.block{border-color:#5a4218;background:#2a2010;color:var(--file)}
+  .check.fail{border-color:#5a2028;background:#2a1015;color:var(--danger)}
+
+  .stockbox{text-align:center;padding:8px 0 14px}
+  .stockbox .sv{font-family:var(--mono);font-size:38px;font-weight:700;color:var(--ok);transition:.2s}
+  .stockbox .sv.zero{color:var(--file)}
+  .stockbox .sv.neg{color:var(--danger)}
+  .stockbox .sl{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.5px;text-transform:uppercase}
+
+  .ledger{margin-top:6px}
+  .charge{font-family:var(--mono);font-size:11px;padding:8px 10px;border-radius:6px;margin-bottom:6px;border:1px solid var(--line);background:#00000030;opacity:0;transform:translateX(-6px);transition:.4s;display:flex;justify-content:space-between}
+  .charge.show{opacity:1;transform:none}
+  .charge.ok{border-color:#1f5a3a;background:#0f2a1c;color:var(--ok)}
+  .charge.dup{border-color:#5a2028;background:#2a1015;color:var(--danger)}
+
+  .verdict{margin-top:18px;padding:14px 16px;border-radius:10px;font-size:14px;text-align:center;font-weight:600;border:1px solid;transition:.4s;opacity:0}
+  .verdict.show{opacity:1}
+  .verdict.bad{background:#2a1015;border-color:#5a2028;color:var(--danger)}
+  .verdict.good{background:#0f2a1c;border-color:#1f5a3a;color:var(--ok)}
+
+  .lnav{display:flex;justify-content:space-between;margin-top:44px;padding-top:24px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13px}
+  .lnav a{text-decoration:none;color:var(--dim)}.lnav a:hover{color:var(--new)}
+  @media(max-width:640px){h1{font-size:26px}.flow{grid-template-columns:1fr}.node{min-height:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../../index.html">← All lessons</a>
+  <header class="lesson">
+    <div class="eyebrow">Lesson 04 · Concurrency</div>
+    <h1>The inventory race condition</h1>
+    <p class="lead">One item left in stock. Two customers click "Buy" in the same instant. Your code checks the stock, sees 1, and sells it — twice. Nothing crashed, no error was logged, and you now owe someone an item you don't have. This is check-then-act, the classic race condition, and the fix is one atomic query.</p>
+    <div class="meta"><span>~8 min read</span><span>Intermediate</span><span>Transactions · locking · races</span></div>
+  </header>
+
+  <div class="prose">
+    <h2>The code that looks correct</h2>
+    <p>Almost every store starts with a handler shaped like this:</p>
+    <pre><span class="c">// check…</span>
+item = db.query(<span class="g">"SELECT qty FROM stock WHERE id = 42"</span>);
+if (item.qty > 0) {
+  <span class="c">// …then act</span>
+  db.query(<span class="g">"UPDATE stock SET qty = qty - 1 WHERE id = 42"</span>);  <span class="r">// ← the gap is above this line</span>
+  createOrder();
+}</pre>
+    <p>The bug lives in the gap between the <code>SELECT</code> and the <code>UPDATE</code>. Your server handles requests concurrently — that's the whole point of a web server. If two requests both run the <code>SELECT</code> before either runs the <code>UPDATE</code>, <strong>both see <code>qty = 1</code>, both pass the check, and both sell the item.</strong> The window is only microseconds wide, which is exactly why it never happens in testing and absolutely happens on launch day.</p>
+
+    <h2>Watch the race happen</h2>
+    <p>Run the <strong>check-then-act version</strong> and watch requests A and B interleave: both read 1, both pass, stock goes negative. Then run the <strong>atomic version</strong> and watch the database referee the race — one winner, one clean "out of stock".</p>
+
+    <div class="widget">
+      <div class="wtitle">Last item in stock · two buyers, same instant</div>
+      <div class="controls">
+        <button class="bad" id="runBad">▶ Run check-then-act</button>
+        <button class="safe" id="runSafe">▶ Run atomic update</button>
+        <button id="reset">↺ Reset</button>
+        <div class="mode">Handler: <b id="modeLabel">—</b></div>
+      </div>
+
+      <div class="stage">
+        <div class="flow">
+          <div class="node app">
+            <div class="nh"><span class="ni">A</span>Request A</div>
+            <div class="check" id="a1">SELECT qty</div>
+            <div class="check" id="a2">qty &gt; 0 ?</div>
+            <div class="check" id="a3">Decrement stock</div>
+            <div class="check" id="a4">Create order</div>
+          </div>
+          <div class="node db">
+            <div class="nh"><span class="ni">▦</span>Inventory DB</div>
+            <div class="stockbox"><div class="sv" id="stockVal">1</div><div class="sl">qty in stock</div></div>
+            <div class="ledger" id="ledger"></div>
+          </div>
+          <div class="node appb">
+            <div class="nh"><span class="ni">B</span>Request B</div>
+            <div class="check" id="b1">SELECT qty</div>
+            <div class="check" id="b2">qty &gt; 0 ?</div>
+            <div class="check" id="b3">Decrement stock</div>
+            <div class="check" id="b4">Create order</div>
+          </div>
+        </div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </div>
+
+    <h2>The fix: let the database referee</h2>
+    <p>You cannot close the gap from application code — two processes can always interleave between your read and your write. What you <em>can</em> do is collapse the check and the act into <strong>one statement</strong>, because a single SQL statement is atomic: the database applies it to one request at a time, full stop.</p>
+
+    <h3>1 · The atomic conditional update</h3>
+    <pre><span class="c">-- check and act in ONE statement — no gap to race through</span>
+<span class="b">UPDATE</span> stock <span class="b">SET</span> qty = qty - 1
+<span class="b">WHERE</span> id = 42 <span class="y">AND qty &gt; 0</span>;</pre>
+    <p>Then look at the <strong>affected-row count</strong> the database hands back. One row affected means you won — create the order. Zero rows affected means someone beat you to it — return "out of stock". No exception handling, no lock management, just arithmetic the database guarantees.</p>
+    <pre><span class="c">// pseudo-code — same shape in any language</span>
+rows = db.execute(<span class="g">"UPDATE stock SET qty = qty - 1 WHERE id = 42 AND qty > 0"</span>);
+if (rows === <span class="y">1</span>) { createOrder(); return <span class="g">200</span>; }
+return <span class="r">409</span>;  <span class="c">// sold out — cleanly, honestly</span></pre>
+
+    <h3>2 · When you need more than a decrement: row locks</h3>
+    <p>If the "act" is genuinely multi-step — reserve stock, apply a coupon, write three tables — put it in a transaction and lock the row up front with <code>SELECT … FOR UPDATE</code>. The second request <strong>blocks at the lock</strong> until the first commits, then re-reads and sees the truth: <code>qty = 0</code>.</p>
+    <pre><span class="b">BEGIN</span>;
+<span class="b">SELECT</span> qty <span class="b">FROM</span> stock <span class="b">WHERE</span> id = 42 <span class="y">FOR UPDATE</span>;  <span class="c">-- B waits here until A commits</span>
+<span class="c">-- check qty, write orders, whatever you need — the row is yours</span>
+<span class="b">UPDATE</span> stock <span class="b">SET</span> qty = qty - 1 <span class="b">WHERE</span> id = 42;
+<span class="b">COMMIT</span>;</pre>
+
+    <div class="callout"><b>Same principle as Lesson 02.</b> The idempotency-key pattern and this one are the same move in different clothes: stop trusting application-level "have I checked?" logic and let a database guarantee — a unique constraint there, an atomic statement or row lock here — decide the race. The database is the only referee that sees both requests.</div>
+
+    <div class="callout warn"><b>A constraint as the last line of defense.</b> Add <code>CHECK (qty &gt;= 0)</code> to the column (or an unsigned type). If a future refactor reintroduces the race, the database rejects the write instead of silently going negative — you get a loud error instead of a quiet oversell.</div>
+
+    <h2>The takeaway</h2>
+    <p>Any time your code does <em>read, decide, write</em> against shared data, another request can slip between the read and the write. Testing won't catch it; the window is too small. The fix is never "check more carefully" — it's to make the check and the write one atomic operation, in the one place that serializes everything: the database.</p>
+
+    <div class="lnav">
+      <a href="../03-n-plus-one-query/index.html">← Lesson 03</a>
+      <a href="../05-cache-stampede/index.html">Lesson 05 →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let busy=false,timers=[];
+const wait=ms=>new Promise(r=>{const t=setTimeout(r,ms);timers.push(t);});
+function clr(){timers.forEach(clearTimeout);timers=[];}
+
+function setStock(v){const el=$('stockVal');el.textContent=v;
+  el.className='sv'+(v<0?' neg':v===0?' zero':'');}
+function setCheck(id,txt,cls){const el=$(id);el.className='check on '+(cls||'');el.innerHTML=txt;}
+function addOrder(label,cls){const d=document.createElement('div');d.className='charge '+cls;
+  d.innerHTML=`<span>${label}</span><span>1× item #42</span>`;
+  $('ledger').appendChild(d);requestAnimationFrame(()=>d.classList.add('show'));}
+
+function reset(){
+  clr();busy=false;
+  ['a1','a2','a3','a4','b1','b2','b3','b4'].forEach(id=>{$(id).className='check';});
+  $('a1').textContent='SELECT qty';$('b1').textContent='SELECT qty';
+  $('a2').textContent='qty > 0 ?';$('b2').textContent='qty > 0 ?';
+  $('a3').textContent='Decrement stock';$('b3').textContent='Decrement stock';
+  $('a4').textContent='Create order';$('b4').textContent='Create order';
+  $('ledger').innerHTML='';setStock(1);
+  $('verdict').className='verdict';$('verdict').textContent='';
+  $('modeLabel').textContent='—';$('modeLabel').style.color='';
+  $('runBad').disabled=false;$('runSafe').disabled=false;
+}
+
+async function runBad(){
+  if(busy)return;reset();busy=true;$('runBad').disabled=true;$('runSafe').disabled=true;
+  $('modeLabel').textContent='check-then-act';$('modeLabel').style.color='var(--danger)';
+
+  setCheck('a1','SELECT qty → <b>1</b>');await wait(450);
+  setCheck('b1','SELECT qty → <b>1</b> <span style="color:var(--danger)">(same!)</span>');await wait(600);
+  setCheck('a2','1 > 0 — pass','pass');await wait(400);
+  setCheck('b2','1 > 0 — pass','fail');await wait(600);
+  setCheck('a3','UPDATE qty = qty − 1','pass');setStock(0);await wait(500);
+  setCheck('a4','Order created','pass');addOrder('Order · buyer A','ok');await wait(700);
+  setCheck('b3','UPDATE qty = qty − 1','fail');setStock(-1);await wait(500);
+  setCheck('b4','Order created (!)','fail');addOrder('Order · buyer B','dup');await wait(600);
+
+  $('verdict').className='verdict show bad';
+  $('verdict').innerHTML='✕ Two orders sold, one item existed — qty is now −1';
+  busy=false;$('runBad').disabled=false;$('runSafe').disabled=false;
+}
+
+async function runSafe(){
+  if(busy)return;reset();busy=true;$('runBad').disabled=true;$('runSafe').disabled=true;
+  $('modeLabel').textContent='atomic UPDATE';$('modeLabel').style.color='var(--ok)';
+
+  setCheck('a1','UPDATE … WHERE qty > 0');await wait(450);
+  setCheck('b1','UPDATE … WHERE qty > 0');await wait(600);
+  setCheck('a2','1 row affected — won','pass');setStock(0);await wait(500);
+  setCheck('a3','Stock claimed','pass');await wait(400);
+  setCheck('a4','Order created','pass');addOrder('Order · buyer A','ok');await wait(700);
+  setCheck('b2','0 rows affected — lost','block');await wait(500);
+  setCheck('b3','No stock claimed','block');await wait(400);
+  setCheck('b4','Return 409 · out of stock','block');await wait(500);
+
+  $('verdict').className='verdict show good';
+  $('verdict').innerHTML='✓ One order, honest sell-out — the database refereed the race';
+  busy=false;$('runBad').disabled=false;$('runSafe').disabled=false;
+}
+
+$('runBad').onclick=runBad;$('runSafe').onclick=runSafe;$('reset').onclick=reset;
+reset();
+</script>
+</body>
+</html>
