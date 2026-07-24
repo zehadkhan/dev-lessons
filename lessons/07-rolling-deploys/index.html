@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 07 · Deploys that can't take the site down</title>
 <meta name="description" content="Watch a bad build deployed to every server at once take the whole site down — then watch a rolling deploy with health checks catch the same build on server one, with zero downtime.">
+<script>(function(){var t=localStorage.getItem('dl-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
@@ -103,9 +104,44 @@
   .lnav{display:flex;justify-content:space-between;margin-top:44px;padding-top:24px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13px}
   .lnav a{text-decoration:none;color:var(--dim)}.lnav a:hover{color:var(--new)}
   @media(max-width:640px){h1{font-size:26px}.fleet{grid-template-columns:1fr;gap:8px}}
+
+  /* ===== light theme ===== */
+  :root{color-scheme:dark}
+  [data-theme="light"]{
+    color-scheme:light;
+    --bg:#f6f8fa; --panel:#ffffff; --panel2:#e9edf2; --line:#d0d7e0;
+    --ink:#1c2430; --dim:#4d5866; --faint:#6e7987;
+    --accent:#6d4de0; --accent2:#0c7f79;
+    --new:#6d4de0; --newbg:#efeafd; --newln:#c9bcf3;
+    --old:#0c7f79; --oldbg:#e2f4f3; --oldln:#9ed4d1;
+    --file:#9a6200; --db:#166dbb; --danger:#c93a49; --ok:#178744;
+    --stripe:#5148d8; --stripebg:#e9e8fb;
+  }
+  /* widgets and code blocks stay terminal-dark in both themes */
+  [data-theme="light"] .widget,[data-theme="light"] pre{
+    color-scheme:dark;
+    --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --accent:#a78bfa; --accent2:#3fb0ac;
+    --new:#a78bfa; --newbg:#221a3a; --newln:#3a2d63;
+    --old:#3fb0ac; --oldbg:#0f2b2a; --oldln:#1f4a48;
+    --file:#f0a742; --db:#4a9eea; --danger:#f0616d; --ok:#5bd68f;
+    --stripe:#635bff; --stripebg:#1a1840;
+  }
+  [data-theme="light"] .prose p,[data-theme="light"] .prose li{color:#3a4553}
+  [data-theme="light"] .prose code{color:#8a5310}
+  [data-theme="light"] .callout{background:#ffffff;color:var(--ink)}
+  [data-theme="light"] .tag{background:transparent;border-color:currentColor}
+  .themetoggle{position:fixed;top:16px;right:16px;z-index:50;width:38px;height:38px;border-radius:50%;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;
+    display:grid;place-items:center;font-size:15px;padding:0;line-height:1}
+  .themetoggle:hover{border-color:var(--faint);background:var(--panel2)}
 </style>
 </head>
 <body>
+<button class="themetoggle" aria-label="Toggle color theme" onclick="var r=document.documentElement,t=r.getAttribute('data-theme')==='light'?'dark':'light';r.setAttribute('data-theme',t);localStorage.setItem('dl-theme',t);this.textContent=t==='light'?'☾':'☀';">☀</button>
+<script>document.querySelector('.themetoggle').textContent=document.documentElement.getAttribute('data-theme')==='light'?'☾':'☀';</script>
+
 <div class="wrap">
   <a class="back" href="../../index.html">← All lessons</a>
   <header class="lesson">
