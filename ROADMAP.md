@@ -17,10 +17,10 @@ Status: ✅ published · 🔜 next wave · 📋 planned
 
 | Ch | Lesson | Core mechanism to animate | Status |
 |----|--------|---------------------------|--------|
-| 1 | What happens when you type a URL | DNS → TCP → TLS → HTTP, the full journey as one animation | 🔜 |
-| 2 | DNS, demystified | Resolver chain, record types, TTL caching — and why "propagation" is mostly a myth | 🔜 |
-| 3 | TCP under the hood | Three-way handshake, retransmission, why packet loss makes apps *slow* not *broken* | 🔜 |
-| 4 | TLS and the certificate that expired at 3am | The handshake, the chain of trust, and the outage every company has had | 🔜 |
+| 1 | What happens when you type a URL | DNS → TCP → TLS → HTTP, the full journey as one animation | ✅ [Lesson 11](lessons/11-what-happens-when-you-type-a-url/index.html) |
+| 2 | DNS, demystified | Resolver chain, record types, TTL caching — and why "propagation" is mostly a myth | ✅ [Lesson 12](lessons/12-dns-demystified/index.html) |
+| 3 | TCP under the hood | Three-way handshake, retransmission, why packet loss makes apps *slow* not *broken* | ✅ [Lesson 13](lessons/13-tcp-under-the-hood/index.html) |
+| 4 | TLS and the certificate that expired at 3am | The handshake, the chain of trust, and the outage every company has had | ✅ [Lesson 14](lessons/14-tls-and-the-expired-certificate/index.html) |
 | 5 | HTTP/1.1 → HTTP/2 → HTTP/3 | Head-of-line blocking visualized; multiplexing collapsing the waterfall | 📋 |
 | 6 | Why your server is unreachable | IPs, ports, NAT and firewalls — debugging connection refused vs timeout | 📋 |
 | 7 | CDNs and edge caching | Requests short-circuiting at the edge; cache keys; origin shield | 📋 |
@@ -100,6 +100,6 @@ Ordered from simplest to heaviest — each rung automates what you did by hand o
 
 ---
 
-**Progress: 10 published / 48 chapters planned.**
+**Progress: 14 published / 48 chapters planned.**
 
 Want to propose a chapter? Open an issue — but bring the failure story and the mechanism to animate, per the quality bar above.

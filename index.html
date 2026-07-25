@@ -67,6 +67,7 @@
   .tag.conc{color:var(--danger);border-color:#5a2028;background:#2a1015}
   .tag.cache{color:var(--accent);border-color:#3a2d63;background:#221a3a}
   .tag.ai{color:var(--ok);border-color:#1f5a3a;background:#0f2a1c}
+  .tag.net{color:#58c4dc;border-color:#14454d;background:#0d2b33}
   .tag.soon{color:var(--faint);border-color:var(--line);background:var(--panel2)}
   .card h3{font-size:20px;font-weight:600;letter-spacing:-.3px;margin-bottom:8px}
   .card p{color:var(--dim);font-size:14px;line-height:1.55}
@@ -321,6 +322,62 @@
         <p>Ask an AI about your database and it may invent an answer. Watch it hallucinate an order count — then watch the Model Context Protocol connect it to a real tool: JSON-RPC handshake, tool discovery, a live query, and an answer grounded in actual rows.</p>
         <div class="cardfoot">
           <span>~10 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/11-what-happens-when-you-type-a-url/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 11</span>
+          <span class="tag net">Networking</span>
+        </div>
+        <h3>What happens when you type a URL</h3>
+        <p>The classic interview question, answered as a latency waterfall you can watch: DNS, TCP, TLS, HTTP, first byte. Cold start vs warm path — same page, half the time, because every redundant round-trip was cached or reused.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/12-dns-demystified/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 12</span>
+          <span class="tag net">Networking</span>
+        </div>
+        <h3>DNS, demystified</h3>
+        <p>The resolver chain, record types and TTL caching — then the migration where half your users kept hitting a dead server for a day. "Propagation" is mostly a myth: watch caches expire, and the lower-TTL-first playbook fix it.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/13-tcp-under-the-hood/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 13</span>
+          <span class="tag net">Networking</span>
+        </div>
+        <h3>TCP under the hood</h3>
+        <p>The three-way handshake, sequence numbers and retransmission — animated packet by packet. Then watch 2% packet loss turn a 180ms request into seconds of stalls: loss makes apps slow, not broken, while ping still says everything's fine.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
+          <span>Interactive</span>
+          <span class="go">Open lesson →</span>
+        </div>
+      </a>
+
+      <a class="card" href="lessons/14-tls-and-the-expired-certificate/index.html">
+        <div class="cardtop">
+          <span class="num">Lesson 14</span>
+          <span class="tag net">Networking</span>
+        </div>
+        <h3>TLS and the certificate that expired at 3am</h3>
+        <p>The handshake and the chain of trust — then the outage every company has had: the clock hits the cert's expiry second and 100% of new connections fail. Auto-renewal plus expiry monitoring turn the 3am deadline into a non-event.</p>
+        <div class="cardfoot">
+          <span>~9 min</span>
           <span>Interactive</span>
           <span class="go">Open lesson →</span>
         </div>

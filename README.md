@@ -30,6 +30,10 @@ Light and dark themes are both supported — it follows your system setting, wit
 | 08 | [Read replicas and the vanishing write](lessons/08-read-replicas/) | Scaling | ✅ Live |
 | 09 | [Surviving a server crash at peak traffic](lessons/09-surviving-a-server-crash/) | Reliability | ✅ Live |
 | 10 | [MCP: how AI gets hands on your systems](lessons/10-mcp-model-context-protocol/) | AI Tooling | ✅ Live |
+| 11 | [What happens when you type a URL](lessons/11-what-happens-when-you-type-a-url/) | Networking | ✅ Live |
+| 12 | [DNS, demystified](lessons/12-dns-demystified/) | Networking | ✅ Live |
+| 13 | [TCP under the hood](lessons/13-tcp-under-the-hood/) | Networking | ✅ Live |
+| 14 | [TLS and the certificate that expired at 3am](lessons/14-tls-and-the-expired-certificate/) | Networking | ✅ Live |
 
 This is the beginning of a much bigger curriculum — **48 chapters across networking, backend, databases, DevOps, deployment, distributed systems and AI tooling**. See the full plan in **[ROADMAP.md](ROADMAP.md)**.
 
