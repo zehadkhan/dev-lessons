@@ -92,8 +92,14 @@ Ordered from simplest to heaviest — each rung automates what you did by hand o
 | 4 | Clocks lie | Clock skew reordering events; why "last write wins" loses writes | 📋 |
 | 5 | Distributed tracing | One request fanning out across five services, reassembled as a trace | 📋 |
 
+## Part VII — AI and your infrastructure
+
+| Ch | Lesson | Core mechanism to animate | Status |
+|----|--------|---------------------------|--------|
+| 1 | MCP: how AI gets hands on your systems | Hallucinated answer vs the JSON-RPC flow: handshake → tools/list → tools/call → grounded answer | ✅ [Lesson 10](lessons/10-mcp-model-context-protocol/index.html) |
+
 ---
 
-**Progress: 9 published / 47 chapters planned.**
+**Progress: 10 published / 48 chapters planned.**
 
 Want to propose a chapter? Open an issue — but bring the failure story and the mechanism to animate, per the quality bar above.

@@ -29,8 +29,9 @@ Light and dark themes are both supported — it follows your system setting, wit
 | 07 | [Deploys that can't take the site down](lessons/07-rolling-deploys/) | DevOps | ✅ Live |
 | 08 | [Read replicas and the vanishing write](lessons/08-read-replicas/) | Scaling | ✅ Live |
 | 09 | [Surviving a server crash at peak traffic](lessons/09-surviving-a-server-crash/) | Reliability | ✅ Live |
+| 10 | [MCP: how AI gets hands on your systems](lessons/10-mcp-model-context-protocol/) | AI Tooling | ✅ Live |
 
-This is the beginning of a much bigger curriculum — **47 chapters across networking, backend, databases, DevOps, deployment and distributed systems**. See the full plan in **[ROADMAP.md](ROADMAP.md)**.
+This is the beginning of a much bigger curriculum — **48 chapters across networking, backend, databases, DevOps, deployment, distributed systems and AI tooling**. See the full plan in **[ROADMAP.md](ROADMAP.md)**.
 
 ## 💡 What makes these different
 
