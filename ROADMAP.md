@@ -51,6 +51,7 @@ Status: ✅ published · 🔜 next wave · 📋 planned
 | 5 | Deadlocks | Two transactions locking in opposite order, frozen, one killed | 📋 |
 | 6 | Backups that actually restore | Full dump + binlog point-in-time replay; the untested-backup incident | 📋 |
 | 7 | Sharding and partitioning | One table splitting across nodes; the cross-shard query problem | 📋 |
+| 8 | Cache vs source of truth | A full registration flow through Postgres and Redis — then Redis, an app server, and the primary each die in turn and only one byte of state turns out to be at risk | ✅ [Lesson 15](lessons/15-redis-and-the-source-of-truth/index.html) |
 
 ## Part IV — DevOps and infrastructure
 

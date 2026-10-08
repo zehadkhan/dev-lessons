@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 15 · Redis is not your source of truth</title>
+<meta name="description" content="Follow one race registration from click to confirmation, then kill Redis, an app server, and the Postgres primary to see what's actually at risk — and why the answer is almost always 'a few seconds', not 'the data'.">
+<script>(function(){var t=localStorage.getItem('dl-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --new:#a78bfa; --newbg:#221a3a; --newln:#3a2d63;
+    --old:#3fb0ac; --oldbg:#0f2b2a; --oldln:#1f4a48;
+    --file:#f0a742; --db:#4a9eea; --danger:#f0616d; --ok:#5bd68f;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;padding:0 0 70px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  a{color:var(--new)}
+  .toprow{display:flex;justify-content:space-between;align-items:center;margin:26px 0 0;flex-wrap:wrap;gap:8px}
+  .back,.langlink{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12.5px;color:var(--dim);text-decoration:none}
+  .back:hover,.langlink:hover{color:var(--new)}
+  header.lesson{padding:24px 0 30px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--ok);text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:34px;font-weight:700;letter-spacing:-.6px;line-height:1.15}
+  .lead{color:var(--dim);font-size:16px;margin-top:16px;max-width:66ch}
+  .meta{display:flex;gap:20px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--faint);flex-wrap:wrap}
+
+  .prose{padding:34px 0 10px}
+  .prose h2{font-size:21px;font-weight:600;letter-spacing:-.3px;margin:36px 0 12px}
+  .prose h3{font-size:16px;font-weight:600;margin:26px 0 8px}
+  .prose p{color:#cdd7e1;font-size:15.5px;margin-bottom:14px}
+  .prose ul{margin:0 0 16px 0;padding-left:4px;list-style:none}
+  .prose li{color:#cdd7e1;font-size:15px;margin-bottom:9px;padding-left:22px;position:relative}
+  .prose li::before{content:"▸";position:absolute;left:0;color:var(--ok)}
+  .prose code{font-family:var(--mono);font-size:13px;background:var(--panel2);padding:2px 6px;border-radius:5px;color:#e6b980;border:1px solid var(--line)}
+  .prose strong{color:var(--ink);font-weight:600}
+  .callout{border-left:3px solid var(--db);background:#0d1720;border-radius:0 8px 8px 0;padding:14px 18px;margin:20px 0;font-size:14.5px;color:#c9dced}
+  .callout b{color:var(--db)}
+  .callout.warn{border-color:var(--file);background:#1a1710;color:#e8dcc4}
+  .callout.warn b{color:var(--file)}
+  .callout ul{margin:10px 0 0 4px}
+  .callout li{margin-bottom:7px;padding-left:20px;position:relative;color:inherit}
+  .callout li::before{content:"▸";position:absolute;left:0}
+  pre{background:#0a0e13;border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.7}
+  pre .c{color:var(--faint)}pre .g{color:var(--ok)}pre .y{color:var(--file)}pre .p{color:var(--new)}pre .b{color:var(--db)}pre .r{color:var(--danger)}
+
+  .panel{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:20px 18px;margin:22px 0}
+  .prose .panel h2{margin:0 0 6px;font-size:18px}
+  .hint{color:var(--dim);font-size:13px;margin-bottom:14px;max-width:80ch}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;margin-bottom:16px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:12px;height:12px;border-radius:3px;border:2px solid;flex-shrink:0}
+  .sw.pg{background:#0f2a1c;border-color:var(--ok)}
+  .sw.rd{background:#1a1710;border-color:var(--file)}
+  .sw.ap{background:var(--newbg);border-color:var(--new)}
+  .sw.dd{background:#2a1015;border-color:var(--danger);border-style:dashed}
+
+  .seqs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .seq{font-family:var(--mono);font-size:12.5px;font-weight:600;cursor:pointer;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;transition:.15s}
+  .seq[aria-pressed="true"]{background:var(--new);color:#140f2b;border-color:var(--new)}
+  .seq:hover{border-color:var(--faint)}
+
+  .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
+  button{font-family:var(--mono);font-size:12.5px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 14px;cursor:pointer;transition:.15s}
+  button:hover:not(:disabled){border-color:var(--faint);background:#232d3a}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button:focus-visible{outline:2px solid var(--new);outline-offset:2px}
+  .dots{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .dot{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--dim);font-family:var(--mono);font-size:11px;padding:0;line-height:1}
+  .dot[aria-current="step"]{background:var(--new);border-color:var(--new);color:#140f2b}
+  .dot.past{border-color:var(--ok);color:var(--ok)}
+
+  .diagram{overflow-x:auto;margin-top:14px}
+  svg{display:block;width:100%;min-width:760px;height:auto}
+  .edge{fill:none;stroke:var(--line);stroke-width:2;transition:stroke .2s,stroke-width .2s}
+  .edge.on{stroke:var(--new);stroke-width:3}
+  .edge.bad{stroke:var(--danger);stroke-width:3;stroke-dasharray:6 6}
+  .node rect{stroke-width:2;transition:all .25s}
+  .node .t{font-size:14px;font-weight:700;fill:var(--ink);text-anchor:middle;font-family:var(--sans)}
+  .node .s{font-size:10.5px;fill:var(--dim);text-anchor:middle;font-family:var(--mono)}
+  .node.k-sys rect{fill:var(--newbg);stroke:var(--new)}
+  .node.k-ext rect{fill:var(--panel);stroke:var(--faint)}
+  .node.k-pg rect{fill:#0f2a1c;stroke:var(--ok)}
+  .node.k-pg2 rect{fill:#0f2a1c;stroke:var(--ok)}
+  .node.k-bk rect{fill:#0f2a1c;stroke:var(--ok)}
+  .node.k-redis rect{fill:#1a1710;stroke:var(--file)}
+  .node.active rect{stroke-width:3;filter:drop-shadow(0 0 8px rgba(167,139,250,.3))}
+  .node.dead rect{fill:#2a1015;stroke:var(--danger);stroke-dasharray:6 4}
+  .node .x{display:none;font-size:12px;font-weight:700;fill:var(--danger);text-anchor:middle;font-family:var(--mono)}
+  .node.dead .x{display:block}
+  .node.dead .s{display:none}
+  .pk{fill:var(--danger);stroke:var(--bg);stroke-width:2}
+  .pkx{font-size:16px;font-weight:700;fill:var(--danger);text-anchor:middle}
+
+  .nar{display:grid;gap:8px;margin-top:20px}
+  .step-no{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .nar h3{font-size:19px;color:var(--ink);font-weight:700}
+  .nar p{font-size:14.5px;color:#cdd7e1;max-width:80ch;margin:0}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:12px;background:#1a1710;color:var(--file);margin-left:8px;vertical-align:middle;letter-spacing:.3px}
+  .verdict{margin-top:4px;padding:9px 13px;border-radius:8px;font-weight:600;font-size:13.5px;border-left:4px solid}
+  .verdict.ok{background:#0f2a1c;border-color:var(--ok);color:var(--ok)}
+  .verdict.warn{background:#1a1710;border-color:var(--file);color:var(--file)}
+
+  .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px 0}
+  .card{border-radius:10px;border:1.5px solid var(--line);padding:13px 15px;background:var(--panel2);min-height:140px}
+  .card.pg{border-color:var(--ok);background:#0f2a1c}
+  .card.rd{border-color:var(--file);background:#1a1710}
+  .card.bk{border-color:var(--ok);background:var(--panel2)}
+  .card.dead{border-color:var(--danger);background:#2a1015;border-style:dashed}
+  .card h4{font-size:13.5px;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;font-weight:600}
+  .pill{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:var(--panel);border:1px solid currentColor;white-space:nowrap}
+  .card.pg .pill{color:var(--ok)}.card.rd .pill{color:var(--file)}.card.bk .pill{color:var(--ok)}.card.dead .pill{color:var(--danger)}
+  .card ul{list-style:none;font-size:13px}
+  .card li{padding:3px 0;border-bottom:1px dashed var(--line);color:var(--dim)}
+  .card li:last-child{border-bottom:0}
+  .card li.new{font-weight:700;color:var(--ok)}
+  .card li.lost{color:var(--danger);font-weight:600}
+  .card li.lost::before{content:'✕ '}
+  .card li.warn{color:var(--file);font-weight:600}
+  .card li.dim{color:var(--faint)}
+
+  .tw{overflow-x:auto;margin:14px 0}
+  table{border-collapse:collapse;width:100%;min-width:600px;font-size:13.5px}
+  th{background:var(--panel2);color:var(--ink);text-align:left;padding:9px 12px;font-weight:600;font-family:var(--mono);font-size:11px;letter-spacing:.3px;border-bottom:1px solid var(--line);text-transform:uppercase}
+  td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:#cdd7e1}
+  td b{color:var(--ink)}
+  .ok-t{color:var(--ok);font-weight:700}.warn-t{color:var(--file);font-weight:700}.bad-t{color:var(--danger);font-weight:700}
+
+  ol.rules{padding-left:20px;font-size:14.5px;color:#cdd7e1;margin:14px 0}
+  ol.rules li{margin:7px 0}
+  ol.rules b{color:var(--ink)}
+  ol.rules code{font-family:var(--mono);font-size:13px;background:var(--panel2);padding:2px 6px;border-radius:5px;color:#e6b980;border:1px solid var(--line)}
+
+  .lnav{display:flex;justify-content:space-between;margin-top:44px;padding-top:24px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13px}
+  .lnav a{text-decoration:none;color:var(--dim)}.lnav a:hover{color:var(--new)}
+
+  @media(max-width:640px){
+    h1{font-size:26px}
+    .cards{grid-template-columns:1fr}
+    .dots{margin-left:0}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ===== light theme ===== */
+  :root{color-scheme:dark}
+  [data-theme="light"]{
+    color-scheme:light;
+    --bg:#f6f8fa; --panel:#ffffff; --panel2:#e9edf2; --line:#d0d7e0;
+    --ink:#1c2430; --dim:#4d5866; --faint:#6e7987;
+    --accent:#6d4de0; --accent2:#0c7f79;
+    --new:#6d4de0; --newbg:#efeafd; --newln:#c9bcf3;
+    --old:#0c7f79; --oldbg:#e2f4f3; --oldln:#9ed4d1;
+    --file:#9a6200; --db:#166dbb; --danger:#c93a49; --ok:#178744;
+  }
+  [data-theme="light"] .prose p,[data-theme="light"] .prose li{color:#3a4553}
+  [data-theme="light"] .prose code{color:#8a5310}
+  [data-theme="light"] .callout{background:#ffffff;color:var(--ink)}
+  /* the diagram stays terminal-dark in both themes, like the other widgets */
+  [data-theme="light"] .panel,[data-theme="light"] .nar,[data-theme="light"] .cards,[data-theme="light"] pre{
+    color-scheme:dark;
+    --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --ink:#e6edf3; --dim:#8b98a5; --faint:#5b6875;
+    --new:#a78bfa; --newbg:#221a3a; --newln:#3a2d63;
+    --old:#3fb0ac; --oldbg:#0f2b2a; --oldln:#1f4a48;
+    --file:#f0a742; --db:#4a9eea; --danger:#f0616d; --ok:#5bd68f;
+  }
+  [data-theme="light"] .panel p,[data-theme="light"] .nar p{color:#cdd7e1}
+  .themetoggle{position:fixed;top:16px;right:16px;z-index:50;width:38px;height:38px;border-radius:50%;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;
+    display:grid;place-items:center;font-size:15px;padding:0;line-height:1}
+  .themetoggle:hover{border-color:var(--faint);background:var(--panel2)}
+</style>
+</head>
+<body>
+<button class="themetoggle" aria-label="Toggle color theme" onclick="var r=document.documentElement,t=r.getAttribute('data-theme')==='light'?'dark':'light';r.setAttribute('data-theme',t);localStorage.setItem('dl-theme',t);this.textContent=t==='light'?'☾':'☀';">☀</button>
+<script>document.querySelector('.themetoggle').textContent=document.documentElement.getAttribute('data-theme')==='light'?'☾':'☀';</script>
+
+<div class="wrap">
+  <div class="toprow">
+    <a class="back" href="../../index.html">← All lessons</a>
+    <a class="langlink" href="index.bn.html">বাংলা পড়ুন →</a>
+  </div>
+  <header class="lesson">
+    <div class="eyebrow">Lesson 15 · Caching</div>
+    <h1>Redis is not your source of truth</h1>
+    <p class="lead">Watch one race registration go from click to confirmation, step by step. Then, one at a time, kill Redis, kill an app server, and kill the Postgres primary — and see what each failure actually costs. The rule that holds it all together: <strong>no registration data ever lives only in Redis.</strong> The truth is in Postgres.</p>
+    <div class="meta"><span>~10 min</span><span>Intermediate</span><span>Postgres vs Redis · failure drills</span></div>
+  </header>
+
+  <div class="prose">
+    <h2>Three places, three jobs</h2>
+    <p><strong>Postgres</strong> is the source of truth — durable, on disk, copied to three places, and never the thing you're allowed to lose. <strong>Redis</strong> exists purely for speed: cache, counters, sessions, queues — everything in it can, in principle, be rebuilt from Postgres. The <strong>standby and the R2 backup</strong> exist for disaster recovery. Follow the journey below, then start killing things one at a time and watch which of those three jobs actually breaks.</p>
+
+    <div class="panel">
+      <h2>Follow the journey</h2>
+      <p class="hint">Pick a scene below, then press "Next step" (← → also works). The red dot is the data moving between systems.</p>
+      <div class="legend" aria-label="What the colors mean">
+        <span><i class="sw pg"></i>Postgres: source of truth, on disk, copied three ways</span>
+        <span><i class="sw rd"></i>Redis: a speed copy and some counters — rebuildable if lost</span>
+        <span><i class="sw ap"></i>app server, Cloudflare, worker</span>
+        <span><i class="sw dd"></i>down or dead</span>
+      </div>
+      <div class="seqs" id="seqs" role="group" aria-label="Pick a scene"></div>
+      <div class="ctl">
+        <button id="prev">← Prev</button>
+        <button id="next">Next step →</button>
+        <button id="auto" aria-pressed="false">▶ Play automatically</button>
+        <button id="reset">↺ Restart</button>
+        <div class="dots" id="dots" role="group" aria-label="Steps"></div>
+      </div>
+      <div class="diagram">
+        <svg id="svg" viewBox="0 0 1000 530" role="img" aria-labelledby="svgt svgd">
+          <title id="svgt">Data flow diagram</title>
+          <desc id="svgd">Runner, Cloudflare, two app servers, Redis, the Postgres primary, its standby, an R2 backup, a worker, an SMS gateway and a payment gateway, and how they relate.</desc>
+          <g id="edges"></g><g id="nodes"></g><g id="pk"></g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="panel nar" aria-live="polite" id="nar">
+      <div class="step-no" id="stepno"></div>
+      <h3 id="ttl"></h3>
+      <p id="txt"></p>
+      <div class="verdict ok" id="vd"></div>
+    </div>
+
+    <div class="cards" aria-label="What's where, right now">
+      <div class="card pg" id="c-pg"><h4><span>Postgres (primary)</span><span class="pill" id="p-pg">source of truth</span></h4><ul id="l-pg"></ul></div>
+      <div class="card rd" id="c-rd"><h4><span>Redis</span><span class="pill" id="p-rd">copy + speed</span></h4><ul id="l-rd"></ul></div>
+      <div class="card bk" id="c-bk"><h4><span>Standby and backup</span><span class="pill">safety copy</span></h4><ul id="l-bk"></ul></div>
+    </div>
+
+    <h2>What's where, and what losing Redis actually costs</h2>
+    <p class="hint">Green means no harm. Amber means there's a way back.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Data</th><th>Lives in</th><th>If Redis dies</th><th>How it recovers</th></tr></thead>
+      <tbody>
+        <tr><td><b>Runner info</b> (name, NID, medical, emergency contact)</td><td>Postgres</td><td class="ok-t">No loss</td><td>Not needed</td></tr>
+        <tr><td><b>Order, payment, the money</b></td><td>Postgres</td><td class="ok-t">No loss</td><td>Not needed</td></tr>
+        <tr><td><b>Spot count</b> (how many left)</td><td>Postgres (truth) + Redis (speed copy)</td><td class="warn-t">Sales pause, nothing is oversold</td><td><code>inventory:rebuild-redis</code>, counting the real rows</td></tr>
+        <tr><td><b>Login session</b></td><td>Redis</td><td class="warn-t">Runner logs in again</td><td>Automatic</td></tr>
+        <tr><td><b>Cache</b> (category list)</td><td>Redis</td><td class="warn-t">Slightly slower, nothing lost</td><td>Rebuilds itself</td></tr>
+        <tr><td><b>SMS/email job</b> (queue)</td><td>Redis</td><td class="bad-t">A few can be lost</td><td>sweep job: <span class="bad-t">not built yet</span></td></tr>
+        <tr><td><b>Rate-limit counters</b> (OTP, IP)</td><td>Redis</td><td class="warn-t">Resets to zero, no harm</td><td>Automatic</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2>Why Redis being wrong doesn't lose data</h2>
+    <ol class="rules">
+      <li><b>Postgres commits first, everything else follows.</b> SMS, email, and the queue all happen after the commit.</li>
+      <li><b>No registration data is ever kept only in Redis.</b> Redis holds counts, sessions, cache, and queues — nothing else.</li>
+      <li><b>If Redis is empty or unreachable, sales stop.</b> We never guess — a paused sale beats an oversold one.</li>
+      <li><b>The count is fixed by counting the real rows in Postgres.</b> If the count column and the rows disagree, the rebuild halts instead of copying a wrong number.</li>
+      <li><b>When Redis's memory fills up, only the cache gets evicted — never the counts</b> (<code>volatile-lru</code>, <code>maxmemory 3gb</code>).</li>
+      <li><b>Postgres's <code>CHECK</code> constraint is the last wall.</b> Even if Redis gets it wrong, the database itself blocks overselling.</li>
+      <li><b>Copied in three places:</b> primary, standby (~0.2s behind), and R2 — hourly dumps plus continuous WAL.</li>
+    </ol>
+    <div class="callout warn"><b>Still open, honestly:</b>
+      <ul>
+        <li>The <b>sweep</b> that catches lost SMS/email jobs hasn't been built. It's the one real gap that comes from Redis.</li>
+        <li>No <b>failure drill</b> has been run with Redis turned off, so how long restart and rebuild actually take is unknown.</li>
+        <li>Redis runs on a single server with no replica. If it dies, sales pause — but no data is lost.</li>
+        <li>Promoting the standby when the Postgres primary dies is a manual runbook, and it's never been rehearsed.</li>
+      </ul>
+    </div>
+
+    <h2>The takeaway</h2>
+    <p>Redis earns its place by being fast and, when it matters, disposable. The instant you let it hold a fact that can't be rebuilt from Postgres, it stops being a cache and becomes a second, unguarded source of truth — and every one of its crashes turns from "sales paused for a few seconds" into "data gone". The architecture above holds that line everywhere except one spot — the SMS/email queue — and it says so plainly instead of pretending the gap doesn't exist.</p>
+
+    <div class="lnav">
+      <a href="../14-tls-and-the-expired-certificate/index.html">← Lesson 14</a>
+      <a href="../../index.html">All lessons →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var NS='http://www.w3.org/2000/svg';
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function mk(tag,attrs,parent){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+
+  var W=150,H=70;
+  var NODES={
+    runner:{x:20,y:230,t:'Runner',s:'phone / browser',k:'ext'},
+    cf:{x:200,y:230,t:'Cloudflare',s:'Load Balancer + WAF',k:'sys'},
+    app1:{x:400,y:100,t:'dim-app-1',s:'Laravel (web)',k:'sys'},
+    app2:{x:400,y:360,t:'dim-app-2',s:'Laravel (web)',k:'sys'},
+    redis:{x:620,y:130,t:'Redis',s:'speed copy',k:'redis'},
+    pg:{x:620,y:290,t:'Postgres',s:'source of truth',k:'pg'},
+    worker:{x:830,y:130,t:'dim-worker',s:'Horizon + scheduler',k:'sys'},
+    sms:{x:830,y:20,t:'SMS gateway',s:'external service',k:'ext'},
+    standby:{x:830,y:290,t:'Standby',s:'~0.2s behind',k:'pg2'},
+    r2:{x:830,y:430,t:'R2 backup',s:'hourly dump + WAL',k:'bk'},
+    pay:{x:20,y:430,t:'SSLCommerz',s:'payment gateway',k:'ext'}
+  };
+  var EDGES={
+    run_cf:'M170,265 L200,265',
+    cf_a1:'M350,250 C375,250 375,135 400,135',
+    cf_a2:'M350,280 C375,280 375,395 400,395',
+    a1_redis:'M550,125 C585,125 585,155 620,155',
+    a1_pg:'M550,150 C590,150 590,315 620,315',
+    a2_redis:'M550,375 C590,375 590,180 620,180',
+    a2_pg:'M550,400 C585,400 585,340 620,340',
+    pg_redis:'M695,290 L695,200',
+    redis_worker:'M770,165 L830,165',
+    worker_sms:'M905,130 L905,90',
+    worker_pg:'M870,200 C870,250 760,240 760,290',
+    pg_standby:'M770,325 L830,325',
+    pg_r2:'M760,360 C760,430 790,475 830,475',
+    run_pay:'M95,300 L95,430',
+    pay_a2:'M170,465 C290,465 330,410 400,400'
+  };
+
+  var edgeG=document.getElementById('edges'),nodeG=document.getElementById('nodes'),pkG=document.getElementById('pk');
+  var edgeEl={},nodeEl={};
+  Object.keys(EDGES).forEach(function(id){edgeEl[id]=mk('path',{d:EDGES[id],'class':'edge',id:'e-'+id},edgeG)});
+  Object.keys(NODES).forEach(function(id){
+    var n=NODES[id];
+    var g=mk('g',{'class':'node k-'+n.k,transform:'translate('+n.x+','+n.y+')'},nodeG);
+    mk('rect',{width:W,height:H,rx:10},g);
+    var t=mk('text',{'class':'t',x:W/2,y:30},g);t.textContent=n.t;
+    var s=mk('text',{'class':'s',x:W/2,y:52},g);s.textContent=n.s;
+    var x=mk('text',{'class':'x',x:W/2,y:52},g);x.textContent='✕ down';
+    nodeEl[id]=g;
+  });
+
+  /* ---------------- scenes ---------------- */
+  var SEQ=[
+  {key:'normal',label:'1. The normal journey',steps:[
+    {title:'Runner opens the site',active:['runner','cf','app1'],packets:[{e:'run_cf'},{e:'cf_a1'}],
+     text:'Cloudflare routes to one of two app servers, and the same runner always lands on the same one. The category list and the "spots left" count come from the Redis cache, which can be up to 10 seconds stale. That’s fine — it’s for display only. The actual claim decision never relies on it.',
+     pg:['dim|Nothing written yet'],rd:['dim|cache: category list (10s)'],bk:['dim|—'],
+     v:['ok','Nothing written yet, so nothing to lose']},
+    {title:'Claiming a spot (cart)',active:['app1','redis','pg'],packets:[{e:'a1_redis'},{e:'a1_pg'}],
+     text:'When the runner picks a size, an atomic Lua script runs inside Redis: check if a spot is free and decrement it, in one step. So if 60 people hit "claim" at once for 50 spots, exactly 50 get through. Then Postgres gets a draft order and a 15-minute hold row. If the Postgres write fails, the Redis decrement is rolled back.',
+     pg:['new|order: draft','new|hold row: 15-minute expiry'],rd:['new|count: held 12 → 13'],bk:['dim|—'],
+     v:['ok','The real record lives in Postgres. Redis only holds the count']},
+    {title:'Filling out the form',active:['app1','pg','redis'],packets:[{e:'a1_pg'}],
+     text:'Name, NID, mobile number, medical info and emergency contact all go straight into Postgres’s runner and order rows. Redis only holds the login session. If the same person tries to grab a second slot, Postgres’s unique index blocks it.',
+     pg:['new|runner: name, NID, medical','order: draft'],rd:['new|session: runner login (cookie)'],bk:['dim|—'],
+     v:['ok','Every form field lands in Postgres. None of it touches Redis']},
+    {title:'Payment starts',active:['app1','pg','runner','pay'],packets:[{e:'a1_pg'},{e:'run_pay'}],
+     text:'Right before payment begins, the hold is frozen — its expiry timer stops, so the spot can’t be lost mid-payment. A payment record (amount in paisa, its own transaction_ref) is written to Postgres first, then the runner is sent to SSLCommerz.',
+     pg:['new|payment: pending','new|hold: frozen'],rd:['count: held 13 (frozen)'],bk:['dim|—'],
+     v:['ok','The record exists before we ever ask for money']},
+    {title:'Payment succeeds (IPN)',active:['pay','app2','pg','redis'],packets:[{e:'pay_a2'},{e:'a2_pg'},{e:'a2_redis'}],
+     text:'SSLCommerz notifies our server (IPN). The app calls the gateway back to verify: amount and currency must match the record. Then, inside one Postgres transaction: payment becomes paid, order becomes confirmed, the held spot becomes confirmed. The update only applies "if still pending", so it can never confirm twice. The moment it COMMITs, it’s on disk.',
+     pg:['new|payment: paid','new|order: confirmed','new|spot: confirmed','new|COMMIT ✔'],rd:['new|count: held 13 → confirmed 13'],bk:['dim|—'],
+     v:['ok','From the moment of COMMIT, the data is safe']},
+    {title:'Copied: standby and backup',active:['pg','standby','r2'],packets:[{e:'pg_standby'},{e:'pg_r2'}],
+     text:'Within about 0.2 seconds of the commit, the data reaches the standby. A dump runs hourly and the WAL streams continuously to R2, plus a daily base backup. If a backup fails, healthchecks.io sends an alert.',
+     pg:['order, payment, runner: safe'],rd:['dim|(unchanged)'],bk:['new|standby: ~0.2s behind','new|R2: hourly dump + WAL','new|daily base backup'],
+     v:['ok','Copied in three places: primary, standby, R2']},
+    {title:'Confirmation job enters the queue',active:['app2','redis'],packets:[{e:'a2_redis'}],
+     text:'Only after the Postgres commit succeeds (after_commit) do the SMS and email jobs go onto the Redis queue. If the commit fails, the job is never created — so an SMS for a registration that never happened can never be sent.',
+     pg:['order: confirmed','warn|confirmation_sent_at: still empty'],rd:['new|queue: SMS job','new|queue: email job'],bk:['dim|—'],
+     v:['warn','This job exists only in Redis. See what happens to it in scene "3. Losing a queued job"']},
+    {title:'Worker sends it, then writes it down',active:['redis','worker','sms','pg'],packets:[{e:'redis_worker'},{e:'worker_sms'},{e:'worker_pg'}],
+     text:'Only dim-worker runs Horizon. It picks up the job, calls the SMS gateway, then writes "confirmation sent" back to Postgres. That fact belongs to Postgres too.',
+     pg:['order: confirmed','new|confirmation_sent_at: written ✔'],rd:['queue: empty'],bk:['dim|—'],
+     v:['ok','Journey complete. Every fact now lives in Postgres']}
+  ]},
+
+  {key:'redis',label:'2. When Redis dies',steps:[
+    {title:'Redis suddenly stops',dead:['redis'],active:[],packets:[],
+     text:'A crash or a restart. The spot count, sessions, cache and queue all lived in Redis. Nothing has changed in Postgres. Registrations, orders, payments: all exactly as they were.',
+     pg:['order, payment, runner: intact ✔'],rd:['lost|count, session, cache, queue: unreachable'],bk:['dim|standby and backup intact'],
+     v:['ok','Registration data lives in Postgres, so it’s intact']},
+    {title:'A new runner arrives',dead:['redis'],active:['runner','cf','app1'],packets:[{e:'run_cf'},{e:'cf_a1'},{e:'a1_redis',blocked:true}],
+     text:'Claiming a spot needs Redis. If it’s unreachable (or missing its "inv:initialized" marker), the app stops selling: "Registration temporarily unavailable", and an alert fires. Stopping sales beats guessing and overselling.',
+     pg:['No new order was created (no overselling)'],rd:['lost|no response'],bk:['dim|—'],
+     v:['warn','Sales are paused, but the data and the count are safe']},
+    {title:'A runner who already paid',tag:'not drilled yet',dead:['redis'],active:['pay','app2','pg'],packets:[{e:'pay_a2'},{e:'a2_pg'}],
+     text:'A runner who already paid has their payment record safely in Postgres. When Redis comes back, a reconcile job asks the gateway and reconciles state. But what happens if an IPN arrives during the exact moment Redis is down — we haven’t tested that in a failure drill yet.',
+     pg:['payment record: present','warn|how confirmation resolves: unverified, pending a drill'],rd:['lost|no response'],bk:['dim|—'],
+     v:['warn','The payment record isn’t lost. The rest still needs a drill to verify']},
+    {title:'Redis comes back',active:['redis'],packets:[],
+     text:'On restart, AOF replays the prior data (roughly the last second of writes may be missing). If it comes back completely empty, there’s no "inv:initialized" marker, so sales stay paused.',
+     pg:['intact ✔'],rd:['new|data restoring from AOF','warn|if fully empty, sales stay paused'],bk:['dim|—'],
+     v:['warn','Sales still aren’t live. Counts need to be reconciled first']},
+    {title:'Rebuilt from Postgres',active:['pg','redis'],packets:[{e:'pg_redis'}],
+     text:'Running inventory:rebuild-redis counts the real hold and order rows in Postgres and sets every count from that. If the count column and the actual rows disagree, it halts instead of copying a wrong number. Once done, the marker is set and sales resume.',
+     pg:['counted from the real rows'],rd:['new|count: confirmed 13 (from rows)','new|inv:initialized marker set'],bk:['dim|—'],
+     v:['ok','Every Redis count can be fully rebuilt from Postgres']},
+    {title:'The outcome',active:['pg','redis'],packets:[],
+     text:'Registration, order, payment, money: none of it was lost. What can be lost is the login session (the runner logs in again) and a handful of queued jobs (next scene). How long recovery actually takes is still unmeasured — that needs a failure drill.',
+     pg:['all data unchanged ✔'],rd:['new|counts correct','warn|session: runner logs in again','warn|queue: a few jobs may be lost'],bk:['dim|—'],
+     v:['ok','No registration data is lost']}
+  ]},
+
+  {key:'queue',label:'3. Losing a queued job',steps:[
+    {title:'Commit done, job queued',active:['app2','pg','redis'],packets:[{e:'a2_pg'},{e:'a2_redis'}],
+     text:'Payment succeeded, the Postgres commit is done. Then the SMS job went onto the Redis queue. Right now, that job exists only in Redis.',
+     pg:['new|order: confirmed ✔','warn|confirmation_sent_at: empty'],rd:['new|queue: SMS job'],bk:['dim|—'],
+     v:['ok','registration is safe']},
+    {title:'Redis crashes, the job is lost',dead:['redis'],active:[],packets:[],
+     text:'AOF usually brings the job back. But roughly the last second of writes before a crash can be lost. The worker never sees that job at all.',
+     pg:['order: confirmed ✔ (intact)','warn|confirmation_sent_at: still empty'],rd:['lost|queue: SMS job (lost)'],bk:['dim|—'],
+     v:['warn','Registration is intact, but the runner won’t get an SMS']},
+    {title:'Postgres knows what’s missing',active:['pg'],packets:[],
+     text:'We write down in Postgres whether a confirmation was sent. Any order that’s confirmed but has that column empty means the SMS never went out. This fact doesn’t depend on Redis at all.',
+     pg:['order: confirmed','warn|confirmation_sent_at: empty → SMS never sent'],rd:['queue: empty'],bk:['dim|—'],
+     v:['ok','Which runner got missed is knowable from Postgres alone']},
+    {title:'A sweep resends it',tag:'not built yet',active:['pg','redis','worker','sms'],packets:[{e:'pg_redis'},{e:'redis_worker'},{e:'worker_sms'}],
+     text:'Every 10 minutes, a sweep job would look for: confirmed, older than 10 minutes, confirmation_sent_at still empty — and re-queue those. The send job is idempotent, so nobody gets two SMS messages. This sweep hasn’t been built yet. It’s the one real gap that comes from Redis.',
+     pg:['new|confirmation_sent_at: written ✔'],rd:['new|queue: re-sent job'],bk:['dim|—'],
+     v:['warn','Build the sweep and the gap closes. Skip it and some SMS messages can be lost']}
+  ]},
+
+  {key:'app',label:'4. When an app server dies',steps:[
+    {title:'dim-app-1 goes down',dead:['app1'],active:[],packets:[],
+     text:'A crash or a bad deploy. Cart and form data live in Postgres, session in Redis. Neither lived inside this server, so there’s nothing to lose.',
+     pg:['cart, form, order: intact ✔'],rd:['session: intact ✔'],bk:['dim|—'],
+     v:['ok','No data is ever stored on the app server itself']},
+    {title:'Cloudflare routes around it',dead:['app1'],active:['runner','cf','app2'],packets:[{e:'run_cf'},{e:'cf_a2'}],
+     text:'The load balancer health-checks every 15 seconds. If app-1 doesn’t respond, all traffic goes to app-2. Session lives in Redis, so the runner isn’t logged out (both servers must share the exact same APP_KEY and REDIS_PREFIX).',
+     pg:['intact ✔'],rd:['session: app-2 sees the same one'],bk:['dim|—'],
+     v:['ok','The runner never even notices']},
+    {title:'A request caught mid-flight',dead:['app1'],active:['app2','pg'],packets:[{e:'a2_pg'}],
+     text:'A request in flight at the moment of the crash can fail. The runner retries and it works. A Postgres transaction is never left half-written: it’s all or nothing. Unique constraints and idempotency block a duplicate order or a duplicate payment.',
+     pg:['all or nothing','duplicate order: blocked'],rd:['dim|—'],bk:['dim|—'],
+     v:['ok','Half-written data is never created']},
+    {title:'It comes back',active:['app1','cf'],packets:[{e:'cf_a1'}],
+     text:'Once health checks pass several times in a row, Cloudflare routes to app-1 again. This is also why deploys roll one server at a time — so both never go down together.',
+     pg:['intact ✔'],rd:['intact ✔'],bk:['dim|—'],
+     v:['ok','This is the entire point of running two servers']}
+  ]},
+
+  {key:'pg',label:'5. When the Postgres primary dies',steps:[
+    {title:'Primary goes down',dead:['pg'],active:['standby','r2'],packets:[],
+     text:'The primary server stops responding. The data exists on the standby (~0.2s behind) and in the R2 backup (hourly dump, WAL, daily base backup).',
+     pg:['lost|primary: no response'],rd:['counts intact'],bk:['new|standby: has the latest state','new|R2: has the dump + WAL'],
+     v:['warn','Writes are stopped, but the data is safe in two places']},
+    {title:'Writes stop',dead:['pg'],active:['runner','cf','app1'],packets:[{e:'run_cf'},{e:'cf_a1'},{e:'a1_pg',blocked:true}],
+     text:'The app can’t write to Postgres. Any Redis decrement made while claiming a spot gets rolled back. The runner sees "something went wrong, you weren’t charged". The readiness check returns 503.',
+     pg:['lost|new writes aren’t possible'],rd:['decremented count is rolled back'],bk:['dim|—'],
+     v:['warn','New registrations are paused; the existing ones are safe']},
+    {title:'Promoting the standby (by hand)',tag:'not drilled',dead:['pg'],active:['standby'],packets:[],
+     text:'A human follows a runbook to promote the standby and point the app at the new host. Replication is async, so writes from the last few milliseconds before the crash might not have reached the standby. Those payments get reconciled against the gateway, via the reconcile job and settlement CSV.',
+     pg:['lost|old primary: down'],rd:['dim|—'],bk:['new|standby → new primary','warn|the last few milliseconds may not have replicated'],
+     v:['warn','Worst case is a few moments of writes, and those can be reconciled against the gateway']},
+    {title:'The outcome',active:['standby','app1','app2'],packets:[],
+     text:'Writes resume on the new primary. But this entire step has never been rehearsed once. It needs to run in a test environment and be timed before launch.',
+     pg:['new|new primary live'],rd:['intact'],bk:['warn|a new standby needs to be built'],
+     v:['warn','Until it’s been drilled, this is a plan on paper']}
+  ]}
+  ];
+
+  /* ---------------- player ---------------- */
+  var seq=SEQ[0],idx=0,token=0,timer=null;
+  var $=function(i){return document.getElementById(i)};
+  var seqsEl=$('seqs'),dotsEl=$('dots');
+
+  SEQ.forEach(function(s,i){
+    var b=document.createElement('button');b.className='seq';b.textContent=s.label;b.setAttribute('aria-pressed',i===0?'true':'false');
+    b.addEventListener('click',function(){pick(i)});seqsEl.appendChild(b);
+  });
+
+  function pick(i){
+    seq=SEQ[i];idx=0;stopAuto();
+    Array.prototype.forEach.call(seqsEl.children,function(b,j){b.setAttribute('aria-pressed',j===i?'true':'false')});
+    buildDots();render();
+  }
+  function buildDots(){
+    dotsEl.innerHTML='';
+    seq.steps.forEach(function(_,i){
+      var d=document.createElement('button');d.className='dot';d.textContent=(i+1);d.setAttribute('aria-label','Step '+(i+1));
+      d.addEventListener('click',function(){stopAuto();idx=i;render()});dotsEl.appendChild(d);
+    });
+  }
+  function fill(ul,items){
+    ul.innerHTML='';
+    items.forEach(function(it){
+      var p=it.split('|'),cls='',txt=it;
+      if(p.length>1&&['new','lost','warn','dim'].indexOf(p[0])>-1){cls=p[0];txt=p.slice(1).join('|')}
+      var li=document.createElement('li');if(cls)li.className=cls;li.textContent=txt;ul.appendChild(li);
+    });
+  }
+  function render(){
+    token++;var my=token;
+    var st=seq.steps[idx];
+    Object.keys(nodeEl).forEach(function(id){
+      nodeEl[id].classList.toggle('active',(st.active||[]).indexOf(id)>-1);
+      nodeEl[id].classList.toggle('dead',(st.dead||[]).indexOf(id)>-1);
+    });
+    Object.keys(edgeEl).forEach(function(id){edgeEl[id].classList.remove('on','bad')});
+    (st.packets||[]).forEach(function(p){edgeEl[p.e].classList.add(p.blocked?'bad':'on')});
+    pkG.innerHTML='';
+    $('stepno').textContent='Scene: '+seq.label.replace(/^\d+\.\s*/,'')+'  ·  step '+(idx+1)+' / '+seq.steps.length;
+    var ttl=$('ttl');ttl.textContent=st.title;
+    if(st.tag){var t=document.createElement('span');t.className='tag';t.textContent=st.tag;ttl.appendChild(t)}
+    $('txt').textContent=st.text;
+    var vd=$('vd');vd.className='verdict '+st.v[0];vd.textContent=st.v[1];
+    var pgDead=(st.dead||[]).indexOf('pg')>-1,rdDead=(st.dead||[]).indexOf('redis')>-1;
+    $('c-pg').classList.toggle('dead',pgDead);$('c-rd').classList.toggle('dead',rdDead);
+    $('p-pg').textContent=pgDead?'down':'source of truth';$('p-rd').textContent=rdDead?'down':'copy + speed';
+    fill($('l-pg'),st.pg||[]);fill($('l-rd'),st.rd||[]);fill($('l-bk'),st.bk||[]);
+    Array.prototype.forEach.call(dotsEl.children,function(d,i){
+      d.classList.toggle('past',i<idx);
+      if(i===idx)d.setAttribute('aria-current','step');else d.removeAttribute('aria-current');
+    });
+    $('prev').disabled=idx===0;$('next').disabled=idx===seq.steps.length-1;
+    if(!reduce)(st.packets||[]).forEach(function(p,i){setTimeout(function(){if(token===my)fly(p,my)},300+i*780)});
+  }
+  function fly(p,my){
+    var path=edgeEl[p.e],len=path.getTotalLength(),dot=mk('circle',{'class':'pk',r:7},pkG),t0=null,D=760,stop=p.blocked?0.72:1;
+    function at(k){var pt=path.getPointAtLength(len*k);dot.setAttribute('cx',pt.x);dot.setAttribute('cy',pt.y)}
+    function frame(ts){
+      if(token!==my){dot.remove();return}
+      if(t0===null)t0=ts;var k=Math.min((ts-t0)/D,1)*stop;at(k);
+      if((ts-t0)<D){requestAnimationFrame(frame)}else{
+        if(p.blocked){var pt=path.getPointAtLength(len*stop);var x=mk('text',{'class':'pkx',x:pt.x,y:pt.y+6},pkG);x.textContent='✕';dot.remove()}
+        else setTimeout(function(){dot.remove()},180);
+      }
+    }
+    at(0);requestAnimationFrame(frame);
+  }
+  function go(d){var n=idx+d;if(n<0||n>=seq.steps.length)return false;idx=n;render();return true}
+  function stopAuto(){if(timer){clearInterval(timer);timer=null}var a=$('auto');a.setAttribute('aria-pressed','false');a.textContent='▶ Play automatically'}
+  $('prev').addEventListener('click',function(){stopAuto();go(-1)});
+  $('next').addEventListener('click',function(){stopAuto();go(1)});
+  $('reset').addEventListener('click',function(){stopAuto();idx=0;render()});
+  $('auto').addEventListener('click',function(){
+    if(timer){stopAuto();return}
+    var a=$('auto');a.setAttribute('aria-pressed','true');a.textContent='⏸ Pause';
+    if(idx===seq.steps.length-1){idx=0;render()}
+    timer=setInterval(function(){if(!go(1))stopAuto()},6800);
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'){stopAuto();go(1)}else if(e.key==='ArrowLeft'){stopAuto();go(-1)}
+  });
+  buildDots();render();
+})();
+</script>
+</body>
+</html>
